@@ -1,0 +1,90 @@
+import nacl.hash
+import os
+
+HASHER = nacl.hash.blake2b
+state_tree = {}
+# We only need to store the max(window_size, 2 * |validators|) most recently 
+# committed blocks
+committed_queue = []
+committed_blocks = {}
+pending_block_to_state = {}
+
+if not(os.path.isdir("ledger")):
+    os.mkdir("ledger")
+# TODO: get LEDGER_ID filename from configuration
+ledger_file = open("ledger/LEDGER_ID", "w+")
+
+class LedgerState:
+    def __init__(self, prev_block_id, block_id, txns):
+        self.prev_block_id = prev_block_id
+        self.block_id = block_id
+        self.txns = txns
+
+        self.children = []
+        if prev_block_id in pending_block_to_state:
+            parent = pending_block_to_state[prev_block_id]
+            parent.children.append(self)
+            self.parent_state_id = parent.id
+        else:
+            # We are the genesis block. Set self.parent_state_id so
+            # that HASHER doesn't yell at us
+            self.parent_state_id = b'' 
+
+        self.id = HASHER(
+            self.parent_state_id + txns.encode("utf-8")
+        )
+
+# speculate(prev_block_id, block_id, txns) // apply txns speculatively
+def speculate(prev_block_id, block_id, txns):
+    state = LedgerState(prev_block_id, block_id, txns)
+    state_tree[state.id] = state
+    pending_block_to_state[block_id] = state
+    
+# pending state(block_id) // find the pending state for the given block id or ⊥
+# if not present
+def pending_state(block_id):
+    state = pending_block_to_state.get(block_id)
+    if state:
+        return state.id
+    else:
+        return None
+
+def commit_prefix(state):
+    global pending_block_to_state
+    global state_tree
+
+    # Commit the state only if it is pending
+    if state.block_id in pending_block_to_state:
+        # If the parent is not committed, commit it first
+        if state.parent_state_id in state_tree:
+            commit_prefix(state_tree[state.parent_state_id])
+        ledger_file.write(state.txns)
+        ledger_file.flush()
+        os.fsync(ledger_file.fileno())
+        # TODO: add the committed block to committed_blocks
+        # TODO: pop the front of committed_queue when it has more than
+        # max(window_size, 2 * |validators|) blocks
+
+def dfs(new_pending, state):
+    for child in state.children:
+        new_pending[child.block_id] = child
+        dfs(new_pending, child)
+
+# commit(block_id) // commit the pending prefix of the given block id and prune
+# other branches
+def commit(block_id):
+    global pending_block_to_state
+
+    if block_id in pending_block_to_state:
+        state = pending_block_to_state[block_id]
+        # Commit the pending prefix
+        commit_prefix(state)
+
+        # Prune the other branches
+        new_pending = {}
+        dfs(new_pending, state)
+        pending_block_to_state = new_pending
+
+# committed_block(block_id) // returns a committed block given its id
+def committed_block(block_id):
+    return committed_blocks.get(block_id)
