@@ -1,0 +1,16 @@
+class Client(process):
+	def setup(replicas:set, runner):
+		pass
+	
+	def run():
+		# TODO:
+		# 1. client requests should be signed
+		#		replicas verify signatures
+		# 2. include unique id to avoid request duplication
+		# 3. client should be able to determine when a submitted request
+		#		has been submitted to the ledger
+		output('started running')
+		# send requests
+		output('done sending commands')
+		send(('done',), to=runner)
+	

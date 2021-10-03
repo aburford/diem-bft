@@ -1,0 +1,12 @@
+# global variables in imported modules remain separate
+# in different DistAlgo processes
+import ledger
+
+class Replica(process):
+	def setup(peers:set):
+		pass
+
+	def run():
+		output('started running')
+		await(received(('done',)))
+		output('finished running')

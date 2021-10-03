@@ -1,0 +1,29 @@
+from replica import Replica
+from client import Client
+
+class Run(process):
+	def setup(config):
+		self.num_replicas = config['num_replicas']
+		self.num_faulty = config['num_faulty']
+		self.num_clients = config['num_clients']
+
+	def run():
+		output('Starting run with %d replicas, %d faulty replicas, and %d clients' % (num_replicas, num_faulty, num_clients))
+		replicas = new(Replica, num=num_replicas)
+		setup(replicas, (replicas,))
+		clients = new(Client, (replicas, self), num=num_clients)
+		start(replicas | clients)
+		await(each(c in clients, has=received(('done',), from_=c)))
+		output('All clients finished sending requests')
+		send(('done',), to=replicas)
+
+def main():
+	configs = []
+	configs.append({
+		'num_replicas': 5,
+		'num_faulty': 0,
+		'num_clients': 1
+	})
+	for config in configs:
+		r = new(Run, (config,))
+		start(r)
