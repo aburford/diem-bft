@@ -6,6 +6,7 @@ import pacemaker
 from collections import deque
 import mempool
 import leaderelection
+import safety
 
 # TimeoutInfo
 # │ round;
@@ -43,27 +44,26 @@ class TimeoutMsg:
 # │ high_commit_qc; // QC to synchronize on committed blocks
 # └ signature ← signu(block.id);
 class ProposalMsg:
-	def __init__(self, block, last_round_tc, high_commit_qc, signature):
+	def __init__(self, block, last_round_tc, high_commit_qc):
 		self.block = block
 		self.last_round_tc = last_round_tc
 		self.high_commit_qc = high_commit_qc
-		self.signature = signature
 
 class Replica(process):
 	def setup(peers:set, clients:set):
 		recent_proposals = deque()
 		leaderelection.validators = sorted(list(peers))
 
+	# loop: wait for next event M ; Main.start_event_processing(M)
+	# if M is a local timeout then Pacemaker.local_timeout_round()
 	def run():
 		output('started running')
 		process_new_round_event(None)
 		while not received(('done',)):
 			round_done = False
 			duration = pacemaker.get_round_timer(pacemaker.current_round)
-			# loop: wait for next event M ; Main.start_event_processing(M)
 			if await(round_done):
 				pass
-			# if M is a local timeout then Pacemaker.local timeout round()
 			elif timeout(duration):
 				pacemaker.local_timeout_round()
 		output('finished running')
@@ -106,25 +106,52 @@ class Replica(process):
 		leaderelection.update_leaders(qc)
 		pacemaker.advance_round(qc.vote_info.round)
 	
+	# Procedure process_proposal_msg(P)
+	# │ process_certificate_qc(P.block.qc)
+	# │ process_certificate_qc(P.high_commit_qc)
+	# │ Pacemaker.advance_round_tc(P.last_round_tc)
+	# │ round ← Pacemaker.current_round
+	# │ leader ← LeaderElection.get_leader(current_round)
+	# │ if P.block.round ≠ round V P.sender ≠ leader V P.block.author ≠ leader then
+	# │ └ return
+	# │ Block-Tree.execute_and_insert(P) // Adds a new speculative state to the Ledger
+	# │ vote_msg ← Safety.make_vote(P.block, P.last_round_tc)
+	# │ if vote_msg ≠ ⊥ then
+	# └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
 	def process_proposal_msg(P, sender):
-		#process_certificate_qc(P)
-		vote_msg = ('vote', tuple())
+		process_certificate_qc(P.block.qc)
+		process_certificate_qc(P.high_commit_qc)
+		pacemaker.advance_round_tc(P.last_round_tc)
 		current_round = pacemaker.current_round
-		send(vote_msg, to=leaderelection.get_leader(current_round + 1))
+		leader = leaderelection.get_leader(current_round)
+		if P.block.round != current_round or sender != leader or P.block.author != leader:
+			return
+		blocktree.execute_and_insert(P)
+		vote_msg = ('vote', safety.make_vote(P.block, P.last_round_tc))
+		if vote_msg:
+			send(vote_msg, to=leaderelection.get_leader(current_round + 1))
 
 	def process_timeout_msg(M, sender):
-		pass
+		process_certificate_qc(M.tmo_info.high_qc)
+		process_certificate_qc(M.high_commit_qc)
+		pacemaker.advance_round_tc(M.last_round_tc)
+		tc = pacemaker.process_remote_timeout(M)
+		if tc:
+			pacemaker.advance_round(tc)
+			process_new_round_event(tc)
 
 	def process_vote_msg(M, sender):
-		process_new_round_event(None)
+		qc = blocktree.process_vote(M)
+		if qc:
+			process_certificate_qc(qc)
+			process_new_round_event(None)
 
 	def process_new_round_event(last_tc):
 		if self == leaderelection.get_leader(pacemaker.current_round):
 			output('%s is now leader for current round %d' % (self, pacemaker.current_round))
 			b = blocktree.generate_block(mempool.get_transactions(), pacemaker.current_round)
-			# TODO make proposalmsg
-			broadcast(('proposal', tuple()))
+			broadcast(('proposal', ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
 
 	def broadcast(msg):
-		# TODO is it always safe to send to self?
+		# TODO is it always safe to send to self? (i think so...)
 		send(msg, to=peers)

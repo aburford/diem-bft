@@ -12,7 +12,6 @@ def check_transaction(txn):
 
 # transactions payload shall be string
 def get_transactions():
-	print(pending)
 	payload = [','.join(txn) for txn in pending]
 	pending.clear()
 	return '\n'.join(payload)

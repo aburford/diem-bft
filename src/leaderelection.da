@@ -8,4 +8,4 @@ def update_leaders(qc):
 	pass
 
 def get_leader(round):
-	return validators[0]
+	return validators[round %  len(validators)]
