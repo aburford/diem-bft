@@ -6,12 +6,15 @@ class Run(process):
 		self.num_replicas = config['num_replicas']
 		self.num_faulty = config['num_faulty']
 		self.num_clients = config['num_clients']
+		self.num_requests = config['num_requests']
 
 	def run():
 		output('Starting run with %d replicas, %d faulty replicas, and %d clients' % (num_replicas, num_faulty, num_clients))
 		replicas = new(Replica, num=num_replicas)
-		setup(replicas, (replicas,))
-		clients = new(Client, (replicas, self), num=num_clients)
+		clients = new(Client, num=num_clients)
+		setup(replicas, (replicas, clients))
+		for c, n in zip(clients, num_requests):
+			setup(c, (replicas, self, n))
 		start(replicas | clients)
 		await(each(c in clients, has=received(('done',), from_=c)))
 		output('All clients finished sending requests')
@@ -22,7 +25,8 @@ def main():
 	configs.append({
 		'num_replicas': 5,
 		'num_faulty': 0,
-		'num_clients': 1
+		'num_clients': 1,
+		'num_requests': [5],
 	})
 	for config in configs:
 		r = new(Run, (config,))

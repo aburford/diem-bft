@@ -1,5 +1,7 @@
+from uuid import uuid4
 class Client(process):
-	def setup(replicas:set, runner):
+	def setup(replicas:set, runner, num_requests):
+		output('configured to send %d requests' % num_requests)
 		pass
 	
 	def run():
@@ -11,6 +13,21 @@ class Client(process):
 		#		has been submitted to the ledger
 		output('started running')
 		# send requests
+		for i in range(num_requests):
+			# TODO include signature
+			# TODO uuid4 random seed?
+			uuid = uuid4().bytes
+			command = str(self) + str(i)
+			txn = (command, uuid)
+			send(('request', txn), to=replicas)
+			committed = False
+			duration = 1
+			while not committed:
+				if await(received(('committed', txn))):
+					committed = True
+				elif timeout(duration):
+					output('timed out requesting commit for txn:', txn)
+					duration *= 2
 		output('done sending commands')
 		send(('done',), to=runner)
 	

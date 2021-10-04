@@ -1,0 +1,23 @@
+from collections import deque
+committed_set = set()
+committed = deque()
+pending = set()
+SIZE = 100
+
+def check_transaction(txn):
+	if txn in committed_set:
+		return True
+	pending.add(txn)
+	return False
+
+def get_transactions():
+	result = pending.copy()
+	pending.clear()
+	return result
+
+def commit_transactions(txns):
+	for txn in txns:
+		committed_set.add(txn)
+		committed.append(txn)
+	while len(committed) > SIZE:
+		committed_set.discard(committed.popleft())
