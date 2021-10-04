@@ -1,7 +1,7 @@
 import nacl.hash
 import os
 
-HASHER = nacl.hash.blake2b
+HASHER = nacl.hash.sha256
 state_tree = {}
 # We only need to store the max(window_size, 2 * |validators|) most recently 
 # committed blocks
