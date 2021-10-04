@@ -10,10 +10,12 @@ def check_transaction(txn):
 	pending.add(txn)
 	return False
 
+# transactions payload shall be string
 def get_transactions():
-	result = pending.copy()
+	print(pending)
+	payload = [','.join(txn) for txn in pending]
 	pending.clear()
-	return result
+	return '\n'.join(payload)
 
 def commit_transactions(txns):
 	for txn in txns:

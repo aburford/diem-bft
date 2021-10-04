@@ -1,11 +1,16 @@
 # global variables in imported modules remain separate
 # in different DistAlgo processes
 import ledger
+import blocktree
 import pacemaker
+from collections import deque
+import mempool
+import leaderelection
 
 class Replica(process):
 	def setup(peers:set, clients:set):
-		pass
+		recent_proposals = deque()
+		leaderelection.validators = sorted(list(peers))
 
 	def run():
 		output('started running')
@@ -22,15 +27,16 @@ class Replica(process):
 		output('finished running')
 	
 	# Procedure start event processing(M)
+	# │ if M is a proposal message then process_proposal_msg(M)
+	# │ if M is a vote message then process_vote_msg(M)
+	# └ if M is a timeout message then process_timeout_msg(M)
 	def receive(msg=M, from_=sender):
 		msg_type = M[0]
-		# if M is a proposal message then process_proposal_msg(M)
+		output('received message %s from: %s' % (M, sender))
 		if msg_type == 'proposal':
 			process_proposal_msg(M[1], sender)
-		# if M is a vote message then process_vote_msg(M)
 		elif msg_type == 'vote':
 			process_vote_msg(M[1], sender)
-		# if M is a timeout message then process_timeout_msg(M)
 		elif msg_type == 'timeout':
 			process_timeout_msg(M[1], sender)
 		elif msg_type == 'request' and sender in clients:
@@ -41,31 +47,39 @@ class Replica(process):
 			if duplicate and leaderelection.get_leader(pacemaker.current_round) == self:
 				# duplicate request, reply to client as the leader
 				# (can two replicas think they're in different rounds and both reply?)
+				output('sending reply to client %s: %s' % (('committed', txn), sender))
 				send(('committed', txn), to=sender)
 	
 	# Procedure process certificate qc(qc)
+	# │ Block-Tree.process_qc(qc)
+	# │ LeaderElection.update_leaders(qc)
+	# └ Pacemaker.advance_round(qc.vote_info.round)	
 	def process_certificate_qc(qc):
-		# Block-Tree.process_qc(qc)
-		# LeaderElection.update_leaders(qc)
-		# Pacemaker.advance_round(qc.vote_info.round)	
-		blocktree.process_qc(qc)
+		committed = blocktree.process_qc(qc)
+		mempool.commit_transactions()
+		# TODO tell clients that we committed their requests
+		#if str(self) == qc.vote_info.parent_id:
+		#	for txn in committed:
+		#		send(txn, to=)
 		leaderelection.update_leaders(qc)
 		pacemaker.advance_round(qc.vote_info.round)
-
+	
 	def process_proposal_msg(P, sender):
+		#process_certificate_qc(P)
 		vote_msg = ('vote', tuple())
 		current_round = pacemaker.current_round
 		send(vote_msg, to=leaderelection.get_leader(current_round + 1))
 
-	def process_timeout_msg(M):
+	def process_timeout_msg(M, sender):
 		pass
 
-	def process_vote_msg(M):
+	def process_vote_msg(M, sender):
 		process_new_round_event(None)
 
 	def process_new_round_event(last_tc):
-		if self == leaderelction.get_leader(pacemaker.current_round):
-			b = blocktree.generate_block(mempool.get_transactions(), pacemake.current_round)
+		if self == leaderelection.get_leader(pacemaker.current_round):
+			output('%s is now leader for current round %d' % (self, pacemaker.current_round))
+			b = blocktree.generate_block(mempool.get_transactions(), pacemaker.current_round)
 			# TODO make proposalmsg
 			broadcast(('proposal', tuple()))
 

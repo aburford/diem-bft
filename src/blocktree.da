@@ -112,6 +112,7 @@ def max_qc(qc1, qc2):
 # │ │   the new root of pending
 # │ └ high_commit_qc ← max{round}(qc, high_commit_qc)
 # └ high qc ← max{round}(qc, high_qc)
+# TODO also return what transactions were committed
 def process_qc(qc):
     if qc.ledger_commit_info.commit_state_id != None:
         ledger.commit(qc.vote_info.parent_id)

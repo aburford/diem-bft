@@ -16,7 +16,7 @@ class Client(process):
 		for i in range(num_requests):
 			# TODO include signature
 			# TODO uuid4 random seed?
-			uuid = uuid4().bytes
+			uuid = uuid4().hex
 			command = str(self) + str(i)
 			txn = (command, uuid)
 			send(('request', txn), to=replicas)
