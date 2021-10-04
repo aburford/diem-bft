@@ -112,13 +112,22 @@ def max_qc(qc1, qc2):
 # │ │   the new root of pending
 # │ └ high_commit_qc ← max{round}(qc, high_commit_qc)
 # └ high qc ← max{round}(qc, high_qc)
-# TODO also return what transactions were committed
+# TODO we can't just return the round of the committed block, we must reparse the transactions from the payload
+# because  if the next leader didn't see a requested transaction, they still need to store it in committed cache
+# in case of a  duplicate request
+# JK actually i'm not sure... maybe instead of assuming the leader will reply to duplicate requests, we only have the
+# node that proposed the block  with that transaction reply.
+# maybe clarify with professor how he expects this to  work, will he care if all nodes reply?
 def process_qc(qc):
     if qc.ledger_commit_info.commit_state_id != None:
         ledger.commit(qc.vote_info.parent_id)
         pending_block_tree.prune(qc.vote_info.parent_id)
         high_commit_qc = max_qc(qc, high_commit_qc)
+    	high_qc = max_qc(qc, high_qc)
+		block = ledger.committed_block(qc.vote_info.parent_id)
+		return block.round, qc.ledger_commit_info.commit_state_id
     high_qc = max_qc(qc, high_qc)
+	return (None, None)
 
 # Procedure execute_and_insert(b)
 # │ Ledger.speculate(b.qc.block_id, b.id, b.payload)

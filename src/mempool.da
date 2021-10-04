@@ -1,24 +1,30 @@
-from collections import deque
-committed_set = set()
-committed = deque()
+from collections import OrderedDict
+# set of (txn, client)
 pending = set()
+# map round number to set of (txn, client)
+# 	contains txns that may or may not be committed
+proposed = dict()
+committed = OrderedDict()
 SIZE = 100
 
-def check_transaction(txn):
-	if txn in committed_set:
-		return True
-	pending.add(txn)
+def check_transaction(txn, client):
+	if txn in committed:
+		return committed[txn]
+	for round, (proposed_txn, _) in proposed:
+		if txn == proposed_txn:
+			return False
+	pending.add((txn, client))
 	return False
 
 # transactions payload shall be string
-def get_transactions():
-	payload = [','.join(txn) for txn in pending]
+def get_transactions(round):
+	proposed[round] = pending.copy()
+	payload = [','.join(txn) for txn, client in pending]
 	pending.clear()
 	return '\n'.join(payload)
 
-def commit_transactions(txns):
-	for txn in txns:
-		committed_set.add(txn)
-		committed.append(txn)
-	while len(committed) > SIZE:
-		committed_set.discard(committed.popleft())
+def commit_transactions(round, commit_state_id, broadcast):
+	if round in proposed:
+		committed.update(proposed[round])
+		while len(committed) > SIZE:
+			committed.popitem(False)

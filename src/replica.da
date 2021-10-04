@@ -97,8 +97,9 @@ class Replica(process):
 	# │ LeaderElection.update_leaders(qc)
 	# └ Pacemaker.advance_round(qc.vote_info.round)	
 	def process_certificate_qc(qc):
-		committed = blocktree.process_qc(qc)
-		mempool.commit_transactions()
+		committed_round, commit_state_id = blocktree.process_qc(qc)
+		if committed_round != None:
+			mempool.commit_transactions(committed_round, commit_state_id, broadcast)
 		# TODO tell clients that we committed their requests
 		#if str(self) == qc.vote_info.parent_id:
 		#	for txn in committed:
