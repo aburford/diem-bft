@@ -50,9 +50,10 @@ class ProposalMsg:
 		self.high_commit_qc = high_commit_qc
 
 class Replica(process):
-	def setup(peers:set, clients:set):
+	def setup(peers:set, clients:set, transmission_delay_bound):
 		recent_proposals = deque()
 		leaderelection.validators = sorted(list(peers))
+		pacemaker.transmission_delay_bound = transmission_delay_bound
 
 	# loop: wait for next event M ; Main.start_event_processing(M)
 	# if M is a local timeout then Pacemaker.local_timeout_round()
@@ -85,12 +86,11 @@ class Replica(process):
 			# process request from client
 			txn = M[1]
 			# check if duplicate (otherwise add to mempool.pending)
-			duplicate = mempool.check_transaction(txn)
-			if duplicate and leaderelection.get_leader(pacemaker.current_round) == self:
-				# duplicate request, reply to client as the leader
-				# (can two replicas think they're in different rounds and both reply?)
-				output('sending reply to client %s: %s' % (('committed', txn), sender))
-				send(('committed', txn), to=sender)
+			commit_state_id = mempool.check_transaction(txn, sender)
+			if commit_state_id:
+				# duplicate request, reply to client
+				output('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
+				send(('committed', txn, commit_state_id), to=sender)
 	
 	# Procedure process_certificate_qc(qc)
 	# │ Block-Tree.process_qc(qc)
@@ -99,11 +99,7 @@ class Replica(process):
 	def process_certificate_qc(qc):
 		committed_round, commit_state_id = blocktree.process_qc(qc)
 		if committed_round != None:
-			mempool.commit_transactions(committed_round, commit_state_id, broadcast)
-		# TODO tell clients that we committed their requests
-		#if str(self) == qc.vote_info.parent_id:
-		#	for txn in committed:
-		#		send(txn, to=)
+			mempool.commit_transactions(committed_round, commit_state_id)
 		leaderelection.update_leaders(qc)
 		pacemaker.advance_round(qc.vote_info.round)
 	
@@ -127,7 +123,9 @@ class Replica(process):
 		leader = leaderelection.get_leader(current_round)
 		if P.block.round != current_round or sender != leader or P.block.author != leader:
 			return
-		blocktree.execute_and_insert(P)
+		blocktree.execute_and_insert(P.block)
+		# TODO confirm this is the right place to call mempool.process_proposal
+		mempool.process_proposal(P.block.payload, P.block.round)
 		vote_msg = ('vote', safety.make_vote(P.block, P.last_round_tc))
 		if vote_msg:
 			send(vote_msg, to=leaderelection.get_leader(current_round + 1))

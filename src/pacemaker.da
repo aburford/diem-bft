@@ -27,9 +27,9 @@ def get_round_timer(r):
             #start_local_timer                     
 def local_timeout_round():
     #save_consensus_state()
-    timeout_info = safety.make_timeout(current_round, blockTree.high_qc, last_round_tc)
+    timeout_info = safety.make_timeout(current_round, blocktree.high_qc, last_round_tc)
 
-    timeout_msg = TimeoutMsg(timeout_info, last_round_tc, blockTree.high_commit_qc)
+    timeout_msg = TimeoutMsg(timeout_info, last_round_tc, blocktree.high_commit_qc)
     send(timeout_msg, to= s)
     #broadcast TimeoutMsg(timeout_info, last_round_tc, block-Tree.high_commit_qc)
 

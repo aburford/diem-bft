@@ -12,51 +12,51 @@ high_qc = None
 high_commit_qc = None
 
 class PendingBlock:
-    def __init__(block):
-        self.block = block
-        self.children = []
+	def __init__(block):
+		self.block = block
+		self.children = []
 
 class PendingBlockTree:
-    def __init__():
-        self.id_to_block = {}
+	def __init__():
+		self.id_to_block = {}
 
-    def add(block):
-        pending_block = PendingBlock(block)
-        self.id_to_block[block.id] = pending_block
-        if block.parent_id in self.id_to_block:
-            self.id_to_block[parent_id].children.add(pending_block)
+	def add(block):
+		pending_block = PendingBlock(block)
+		self.id_to_block[block.id] = pending_block
+		if block.parent_id in self.id_to_block:
+			self.id_to_block[parent_id].children.add(pending_block)
 
-    def dfs(new_tree, pending_block):
-        new_tree[block.id] = pending_block
-        for child in pending_block.children:
-            dfs(new_tree, child)
+	def dfs(new_tree, pending_block):
+		new_tree[block.id] = pending_block
+		for child in pending_block.children:
+			dfs(new_tree, child)
 
-    def prune(id):
-        if id in id_to_block:
-            new_tree = {}
-            self.dfs(new_tree, id_to_block[id])
-            self.id_to_block = new_tree
+	def prune(id):
+		if id in id_to_block:
+			new_tree = {}
+			self.dfs(new_tree, id_to_block[id])
+			self.id_to_block = new_tree
 
 # VoteInfo
 # │ id, round; // Id and round of block
 # │ parent_id, parent round; // Id and round of parent
 # └ exec_state id; // Speculated execution state
 class VoteInfo:
-    def __init__(self, vote_id, vote_round, parent_id, parent_round, exec_state_id):
-        self.id = vote_id
-        self.round = vote_round
-        self.parent_id = parent_id
-        self.parent_round = parent_round
-        self.exec_state_id = exec_state_id
+	def __init__(self, vote_id, vote_round, parent_id, parent_round, exec_state_id):
+		self.id = vote_id
+		self.round = vote_round
+		self.parent_id = parent_id
+		self.parent_round = parent_round
+		self.exec_state_id = exec_state_id
 
 # // speculated new committed state to vote directly on
 # LedgerCommitInfo
 # │ commit_state_id; // ⊥ if no commit happens when this vote is aggregated to QC
 # └ vote_info_hash; // Hash of VoteMsg.vote info
 class LedgerCommitInfo:
-    def __init__(self, commit_state_id, vote_info_hash):
-        self.commit_state_id = commit_state_id
-        self.vote_info_hash = vote_info_hash
+	def __init__(self, commit_state_id, vote_info_hash):
+		self.commit_state_id = commit_state_id
+		self.vote_info_hash = vote_info_hash
 
 # VoteMsg
 # │ vote_info; // A VoteInfo record
@@ -65,10 +65,10 @@ class LedgerCommitInfo:
 # │ sender ← u; // Added automatically when constructed
 # └ signature ← signu(ledger commit info); // Signed automatically when constructed
 class VoteMsg:
-    def __init__(self, vote_info, ledger_commit_info, high_commit_qc):
-        self.vote_info = vote_info
-        self.ledger_commit_info = ledger_commit_info
-        self.high_commit_qc = high_commit_qc
+	def __init__(self, vote_info, ledger_commit_info, high_commit_qc):
+		self.vote_info = vote_info
+		self.ledger_commit_info = ledger_commit_info
+		self.high_commit_qc = high_commit_qc
 
 # // QC is a VoteMsg with multiple signatures
 # QC
@@ -78,10 +78,10 @@ class VoteMsg:
 # │ author ← u; // The validator that produced the qc
 # └ author_signature ←signu(signatures);
 class QC:
-    def __init__(self, vote_info, ledger_commit_info, signatures):
-        self.vote_info = vote_info
-        self.ledger_commit_info = ledger_commit_info
-        self.signatures = signatures
+	def __init__(self, vote_info, ledger_commit_info, signatures):
+		self.vote_info = vote_info
+		self.ledger_commit_info = ledger_commit_info
+		self.signatures = signatures
 
 # Block
 # │ author; // The author of the block, may not be the same as qc.author after view-change
@@ -90,20 +90,20 @@ class QC:
 # │ qc ; // QC for parent block
 # └ id; // A unique digest of author, round, payload, qc.vote_info.id and qc.signatures
 class Block:
-    def __init__(self, author, block_round, payload, qc):
-        self.author = author
-        self.round = block_round
-        self.payload = payload
-        self.qc = qc
-        # TODO: add author, qc.vote_info.id, and qc.signatures
-        self.id = HASHER(self.round.to_bytes(8, "big") + self.payload.encode("utf-8"))
+	def __init__(self, author, block_round, payload, qc):
+		self.author = author
+		self.round = block_round
+		self.payload = payload
+		self.qc = qc
+		# TODO: add author, qc.vote_info.id, and qc.signatures
+		self.id = HASHER(self.round.to_bytes(8, "big") + self.payload.encode("utf-8"))
 
 # QC with the highest round
 def max_qc(qc1, qc2):
-    if qc1.round > qc2.round:
-        return qc1
-    else:
-        return qc2
+	if qc1.round > qc2.round:
+		return qc1
+	else:
+		return qc2
 
 # Procedure process_qc(qc)
 # │ if qc.ledger_commit_info.commit_state id != ⊥ then
@@ -112,33 +112,29 @@ def max_qc(qc1, qc2):
 # │ │   the new root of pending
 # │ └ high_commit_qc ← max{round}(qc, high_commit_qc)
 # └ high qc ← max{round}(qc, high_qc)
-# TODO we can't just return the round of the committed block, we must reparse the transactions from the payload
-# because  if the next leader didn't see a requested transaction, they still need to store it in committed cache
-# in case of a  duplicate request
-# JK actually i'm not sure... maybe instead of assuming the leader will reply to duplicate requests, we only have the
-# node that proposed the block  with that transaction reply.
-# maybe clarify with professor how he expects this to  work, will he care if all nodes reply?
+# TODO is it safe to just return block.round? will all nodes have same set of txns in each proposal in mempool?
+# if this is incorrect then clients could be wrongly informed that their request was committed
 def process_qc(qc):
-    if qc.ledger_commit_info.commit_state_id != None:
-        ledger.commit(qc.vote_info.parent_id)
-        pending_block_tree.prune(qc.vote_info.parent_id)
-        high_commit_qc = max_qc(qc, high_commit_qc)
-    	high_qc = max_qc(qc, high_qc)
+	if qc.ledger_commit_info.commit_state_id != None:
+		ledger.commit(qc.vote_info.parent_id)
+		pending_block_tree.prune(qc.vote_info.parent_id)
+		high_commit_qc = max_qc(qc, high_commit_qc)
+		high_qc = max_qc(qc, high_qc)
 		block = ledger.committed_block(qc.vote_info.parent_id)
 		return block.round, qc.ledger_commit_info.commit_state_id
-    high_qc = max_qc(qc, high_qc)
+	high_qc = max_qc(qc, high_qc)
 	return (None, None)
 
 # Procedure execute_and_insert(b)
 # │ Ledger.speculate(b.qc.block_id, b.id, b.payload)
 # └ pending_block_tree.add(b)
 def execute_and_insert(b):
-    if b.qc == None:
-        # We are the genesis block
-        ledger.speculate("", b.id, b.payload)
-    else:
-        ledger.speculate(b.qc.block_id, b.id, b.payload)
-    pending_block_tree.add(b)
+	if b.qc == None:
+		# We are the genesis block
+		ledger.speculate("", b.id, b.payload)
+	else:
+		ledger.speculate(b.qc.block_id, b.id, b.payload)
+	pending_block_tree.add(b)
 
 # Function process_vote(v)
 # │ process_qc(v.high_commit_qc)
@@ -152,19 +148,19 @@ def execute_and_insert(b):
 # │ └ return qc
 # └ return ⊥
 def process_vote(v):
-    process_qc(v.high_commit_qc)
-    vote_idx = HASHER(v.ledger_commit_info)
-    if not(vote_idx in pending_votes):
-        pending_votes[vote_idx] = set()
-    pending_votes[vote_idx].add(v.signature)
-    if len(pending_votes[vote_idx]) == 2 * f + 1:
-        return QC(
-            v.vote_info,
-            v.state_id,
-            pending_votes[vote_idx]
-        )
-    else:
-        return None
+	process_qc(v.high_commit_qc)
+	vote_idx = HASHER(v.ledger_commit_info)
+	if not(vote_idx in pending_votes):
+		pending_votes[vote_idx] = set()
+	pending_votes[vote_idx].add(v.signature)
+	if len(pending_votes[vote_idx]) == 2 * f + 1:
+		return QC(
+			v.vote_info,
+			v.state_id,
+			pending_votes[vote_idx]
+		)
+	else:
+		return None
 
 # Function generate_block(txns,current_round)
 # │ return Block <
@@ -174,11 +170,11 @@ def process_vote(v):
 # │ │ qc ← high_qc,
 # └ └ id ← hash(author || round || payload || qc.vote_info.id || qc.signatures) >
 def generate_block(txns, current_round):
-    return Block(
-        # TODO: replace "me" with something that uniquely identifies the
-        # process
-        "me",
-        current_round,
-        txns,
-        high_qc,
-    )
+	return Block(
+		# TODO: replace "me" with something that uniquely identifies the
+		# process
+		"me",
+		current_round,
+		txns,
+		high_qc,
+	)

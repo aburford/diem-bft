@@ -1,30 +1,67 @@
 from collections import OrderedDict
-# set of (txn, client)
-pending = set()
-# map round number to set of (txn, client)
-# 	contains txns that may or may not be committed
+# map txn to client
+pending = dict()
+# map round number to map of txn to client
+# 	contains txns that are not yet committed but still could be
 proposed = dict()
+# map txn to commit_state_id
 committed = OrderedDict()
 SIZE = 100
+
+# pending set() keeps track of pending requests
+# when proposal received, remove proposed txns from pending and add to proposed
+# 	ignore proposal if contains requests already proposed or committed
+# 	move proposed to committed
+# when receive request, ignore if already in pending or proposed. reply if in committed. else add to pending
+# i'm pretty sure we could use the same dictionary for proposed and committed but it would be less efficient
+# 	trade off between quickly searching for round vs searching for previously committed block
+
 
 def check_transaction(txn, client):
 	if txn in committed:
 		return committed[txn]
-	for round, (proposed_txn, _) in proposed:
-		if txn == proposed_txn:
+	for _, txns in proposed.items():
+		if txn in txns:
 			return False
-	pending.add((txn, client))
+	pending[txn] = client
 	return False
 
 # transactions payload shall be string
-def get_transactions(round):
-	proposed[round] = pending.copy()
-	payload = [','.join(txn) for txn, client in pending]
-	pending.clear()
+def get_transactions():
+	payload = [','.join(txn) for txn in pending]
 	return '\n'.join(payload)
 
-def commit_transactions(round, commit_state_id, broadcast):
-	if round in proposed:
-		committed.update(proposed[round])
+# return True if valid proposal (no duplicate txns)
+def process_proposal(payload, round):
+	# deserialize
+	payload = {tuple(txn.split(',')) for txn in payload.split('\n')}
+	# ignore proposal if it contains duplicates
+	for txn in payload:
+		if txn in committed:
+			return False
+		for _, txns in proposed.items():
+			if txn in txns:
+				return False
+	# keep track of newly proposed payload
+	proposed[round] = dict()
+	for txn in payload:
+		if txn in pending:
+			proposed[round][txn] = pending[txn]
+			del pending[txn]
+		else:
+			# we don't know who client was
+			proposed[round][txn] = None
+	return True
+
+# TODO is it safe to assume our saved proposal for this round
+# is the same payload as what was actually committed?  not sure...
+def commit_transactions(round_num, commit_state_id):
+	if round_num in proposed:
+		for txn, client in proposed[round]:
+			# TODO can we use send method here?
+			if client:
+				send(('committed', txn, commit_state_id), to=client)
+			committed[txn] = commit_state_id
+		del proposed[round]
 		while len(committed) > SIZE:
 			committed.popitem(False)

@@ -23,7 +23,8 @@ class Client(process):
 			committed = False
 			duration = 1
 			while not committed:
-				if await(received(('committed', txn))):
+				if await(received(('committed', _txn, commit_state_id))):
+					# TODO check commit_state_id signature
 					committed = True
 				elif timeout(duration):
 					output('timed out requesting commit for txn:', txn)
