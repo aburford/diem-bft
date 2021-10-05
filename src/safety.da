@@ -4,7 +4,7 @@ from ledger import *
 from blocktree import *
 
 private_key = 0# Own private key
-public_keys = [] # Public keys of all validators
+public_keys = {} # Public keys of all validators
 highest_vote_round = 0 # initially 0
 highest_qc_round = 0
 # ----- private functions---------

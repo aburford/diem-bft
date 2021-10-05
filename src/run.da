@@ -1,6 +1,9 @@
 from replica import Replica
 from client import Client
 import leaderelection
+import random
+from nacl.signing import SigningKey
+import sys
 
 class Run(process):
 	def setup(config):
@@ -9,14 +12,29 @@ class Run(process):
 		self.num_clients = config['num_clients']
 		self.num_requests = config['num_requests']
 		self.transmission_delay_bound = config['transmission_delay_bound']
+		if 'rng_seed' in config:
+			self.rng_seed = config['rng_seed']
+		else:
+			self.rng_seed = random.randomint(0, sys.maxsize)
+		output('using random seed: %d' % self.rng_seed)
 
 	def run():
 		output('Starting run with %d replicas, %d faulty replicas, and %d clients' % (num_replicas, num_faulty, num_clients))
 		replicas = new(Replica, num=num_replicas)
 		clients = new(Client, num=num_clients)
-		setup(replicas, (replicas, clients, transmission_delay_bound))
-		for c, n in zip(clients, num_requests):
-			setup(c, (replicas, self, n))
+		random.seed(rng_seed)
+		private_keys = {'replica' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big')) for i in range(num_replicas)}
+		private_keys.update({'client' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big')) for i in range(num_clients)})
+		public_keys = {'replica' + str(i): private_keys['replica' + str(i)].verify_key for i in range(num_replicas)}
+		public_keys.update({'client' + str(i): private_keys['client' + str(i)].verify_key for i in range(num_clients)})
+		# we use str(replica) to get unique replica id's
+		# but these are not reproducible
+		# so override __str__ to return unique index
+		# jk distalgo doesn't allow that, use to_str()
+		for i, replica in enumerate(replicas):
+			setup(replica, (replicas, clients, transmission_delay_bound, public_keys, private_keys['replica' + str(i)], i))
+		for i, (client, n) in enumerate(zip(clients, num_requests)):
+			setup(client, (replicas, self, n, public_keys, private_keys['client' + str(i)], i))
 		start(replicas | clients)
 		await(each(c in clients, has=received(('done',), from_=c)))
 		output('All clients finished sending requests')
@@ -29,7 +47,8 @@ def main():
 		'num_faulty': 0,
 		'num_clients': 1,
 		'num_requests': [5],
-		'transmission_delay_bound': 1
+		'transmission_delay_bound': 1,
+		'rng_seed': 0
 	})
 	for config in configs:
 		r = new(Run, (config,))

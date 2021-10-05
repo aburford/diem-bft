@@ -42,7 +42,7 @@ def commit_transactions(payload, commit_state_id, clients):
 		pending.discard(txn)
 		committed[txn] = commit_state_id
 		command, author, uuid = txn
-		client = [c for c in clients if str(c) == author]
+		client = [c for c in clients if c.to_str() == author]
 		if not len(client):
 			output('unrecognized client in txn (this should never happen)')
 		client = client[0]

@@ -50,11 +50,18 @@ class ProposalMsg:
 		self.high_commit_qc = high_commit_qc
 
 class Replica(process):
-	def setup(peers:set, clients:set, transmission_delay_bound):
+	def setup(peers:set, clients:set, transmission_delay_bound, public_keys, private_key, id):
+		safety.public_keys = public_keys
+		safety.private_key = private_key
 		recent_proposals = deque()
 		leaderelection.validators = sorted(list(peers))
 		pacemaker.transmission_delay_bound = transmission_delay_bound
-		blocktree.u = str(self)
+		blocktree.u = to_str()
+		output('setup with key', private_key)
+	
+	# __str__ doesn't seem to work with DistAlgo...
+	def to_str():
+		return 'replica' + str(id)
 
 	# loop: wait for next event M ; Main.start_event_processing(M)
 	# if M is a local timeout then Pacemaker.local_timeout_round()
