@@ -112,8 +112,6 @@ def max_qc(qc1, qc2):
 # │ │   the new root of pending
 # │ └ high_commit_qc ← max{round}(qc, high_commit_qc)
 # └ high qc ← max{round}(qc, high_qc)
-# TODO is it safe to just return block.round? will all nodes have same set of txns in each proposal in mempool?
-# if this is incorrect then clients could be wrongly informed that their request was committed
 def process_qc(qc):
 	if qc.ledger_commit_info.commit_state_id != None:
 		ledger.commit(qc.vote_info.parent_id)
@@ -121,7 +119,7 @@ def process_qc(qc):
 		high_commit_qc = max_qc(qc, high_commit_qc)
 		high_qc = max_qc(qc, high_qc)
 		block = ledger.committed_block(qc.vote_info.parent_id)
-		return block.round, qc.ledger_commit_info.commit_state_id
+		return block.payload, qc.ledger_commit_info.commit_state_id
 	high_qc = max_qc(qc, high_qc)
 	return (None, None)
 
@@ -171,10 +169,13 @@ def process_vote(v):
 # └ └ id ← hash(author || round || payload || qc.vote_info.id || qc.signatures) >
 def generate_block(txns, current_round):
 	return Block(
-		# TODO: replace "me" with something that uniquely identifies the
-		# process
-		"me",
+		u,
 		current_round,
 		txns,
 		high_qc,
 	)
+
+# TODO return list of blocks from high_commit_qc (exclusive) to high_qc (inclusive)
+#  (i think...)
+def path_from_commit_root():
+	return []

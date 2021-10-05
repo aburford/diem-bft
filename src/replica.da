@@ -54,6 +54,7 @@ class Replica(process):
 		recent_proposals = deque()
 		leaderelection.validators = sorted(list(peers))
 		pacemaker.transmission_delay_bound = transmission_delay_bound
+		blocktree.u = str(self)
 
 	# loop: wait for next event M ; Main.start_event_processing(M)
 	# if M is a local timeout then Pacemaker.local_timeout_round()
@@ -97,9 +98,9 @@ class Replica(process):
 	# │ LeaderElection.update_leaders(qc)
 	# └ Pacemaker.advance_round(qc.vote_info.round)	
 	def process_certificate_qc(qc):
-		committed_round, commit_state_id = blocktree.process_qc(qc)
-		if committed_round != None:
-			mempool.commit_transactions(committed_round, commit_state_id)
+		committed_payload, commit_state_id = blocktree.process_qc(qc)
+		if committed_payload != None:
+			mempool.commit_transactions(committed_payload, commit_state_id, clients)
 		leaderelection.update_leaders(qc)
 		pacemaker.advance_round(qc.vote_info.round)
 	
@@ -124,8 +125,6 @@ class Replica(process):
 		if P.block.round != current_round or sender != leader or P.block.author != leader:
 			return
 		blocktree.execute_and_insert(P.block)
-		# TODO confirm this is the right place to call mempool.process_proposal
-		mempool.process_proposal(P.block.payload, P.block.round)
 		vote_msg = ('vote', safety.make_vote(P.block, P.last_round_tc))
 		if vote_msg:
 			send(vote_msg, to=leaderelection.get_leader(current_round + 1))
@@ -148,9 +147,15 @@ class Replica(process):
 	def process_new_round_event(last_tc):
 		if self == leaderelection.get_leader(pacemaker.current_round):
 			output('%s is now leader for current round %d' % (self, pacemaker.current_round))
-			b = blocktree.generate_block(mempool.get_transactions(), pacemaker.current_round)
+			# TODO in rust implementation, blockstore has path_from_commit_root method
+			# which returns list of uncommitted but proposed transactions from the last committed
+			# block to the currently proposed block (i think?)
+			# this is needed to tell mempool what txns are already proposed and in consensus
+			# so we don't propose a duplicate txn
+			# so something like this:
+			exclude_payloads = [block.payload for block in blocktree.path_from_commit_root()]
+			b = blocktree.generate_block(mempool.get_transactions(exclude_payloads), pacemaker.current_round)
 			broadcast(('proposal', ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
 
 	def broadcast(msg):
-		# TODO is it always safe to send to self? (i think so...)
 		send(msg, to=peers)

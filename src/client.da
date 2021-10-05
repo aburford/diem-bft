@@ -13,15 +13,16 @@ class Client(process):
 		#		has been submitted to the ledger
 		output('started running')
 		# send requests
+		duration = 1
 		for i in range(num_requests):
 			# TODO include signature
 			# TODO uuid4 random seed?
 			uuid = uuid4().hex
 			command = str(self) + str(i)
-			txn = (command, uuid)
+			author = str(self)
+			txn = (command, author, uuid)
 			send(('request', txn), to=replicas)
 			committed = False
-			duration = 1
 			while not committed:
 				if await(received(('committed', _txn, commit_state_id))):
 					# TODO check commit_state_id signature
@@ -29,6 +30,7 @@ class Client(process):
 				elif timeout(duration):
 					output('timed out requesting commit for txn:', txn)
 					duration *= 2
+			duration /= 2
 		output('done sending commands')
 		send(('done',), to=runner)
 	

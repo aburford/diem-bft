@@ -1,13 +1,10 @@
 from collections import OrderedDict
-# map txn to client
-pending = dict()
-# map round number to map of txn to client
-# 	contains txns that are not yet committed but still could be
-proposed = dict()
+pending = set()
 # map txn to commit_state_id
 committed = OrderedDict()
 SIZE = 100
 
+# first idea (wrong):
 # pending set() keeps track of pending requests
 # when proposal received, remove proposed txns from pending and add to proposed
 # 	ignore proposal if contains requests already proposed or committed
@@ -16,52 +13,46 @@ SIZE = 100
 # i'm pretty sure we could use the same dictionary for proposed and committed but it would be less efficient
 # 	trade off between quickly searching for round vs searching for previously committed block
 
+# second idea:
+# diem mempool implementation in rust: "Mempool doesn't keep track of transactions sent to consensus. On each get_block request (to pull a block of transaction from mempool), consensus sends a set of transactions that were pulled from mempool, but not committed. This allows the mempool to stay agnostic about different consensus proposal branches."
+# so instead of keeping track of proposed txns ourselves, take that as parameter in get_transactions
+# don't remove from pending until we have committed or rejected block
+
+def payload_to_txns(payload):
+	return {tuple(txn.split(',')) for txn in payload.split('\n')}
 
 def check_transaction(txn, client):
 	if txn in committed:
 		return committed[txn]
-	for _, txns in proposed.items():
-		if txn in txns:
-			return False
-	pending[txn] = client
+	pending.add(txn)
 	return False
 
 # transactions payload shall be string
-def get_transactions():
-	payload = [','.join(txn) for txn in pending]
+def get_transactions(exclude_payloads):
+	# deserialize
+	exclude_txns = set()
+	for payload in exclude_payloads:
+		exclude_txns.update(payload_to_txns(payload))
+	payload = [','.join(txn) for txn in pending if txn not in exclude_txns]
 	return '\n'.join(payload)
 
-# return True if valid proposal (no duplicate txns)
-def process_proposal(payload, round):
-	# deserialize
-	payload = {tuple(txn.split(',')) for txn in payload.split('\n')}
-	# ignore proposal if it contains duplicates
-	for txn in payload:
-		if txn in committed:
-			return False
-		for _, txns in proposed.items():
-			if txn in txns:
-				return False
-	# keep track of newly proposed payload
-	proposed[round] = dict()
-	for txn in payload:
-		if txn in pending:
-			proposed[round][txn] = pending[txn]
-			del pending[txn]
-		else:
-			# we don't know who client was
-			proposed[round][txn] = None
-	return True
-
-# TODO is it safe to assume our saved proposal for this round
-# is the same payload as what was actually committed?  not sure...
-def commit_transactions(round_num, commit_state_id):
-	if round_num in proposed:
-		for txn, client in proposed[round]:
-			# TODO can we use send method here?
-			if client:
-				send(('committed', txn, commit_state_id), to=client)
-			committed[txn] = commit_state_id
-		del proposed[round]
+def commit_transactions(payload, commit_state_id, clients):
+	txns = payload_to_txns(payload)
+	for txn in txns:
+		pending.discard(txn)
+		committed[txn] = commit_state_id
+		command, author, uuid = txn
+		client = [c for c in clients if str(c) == author]
+		if not len(client):
+			output('unrecognized client in txn (this should never happen)')
+		client = client[0]
+		# TODO okay to use send here?
+		send(('committed', txn, commit_state_id), to=client)
 		while len(committed) > SIZE:
 			committed.popitem(False)
+
+# not sure if we need this...
+def reject_transactions(payload):
+	txns = payload_to_txns(payload)
+	for txn in txns:
+		pending.discard(txn)

@@ -25,6 +25,7 @@ def get_round_timer(r):
     #for duration in get_round_timer(current_round):
         #for round current round: 
             #start_local_timer                     
+# TODO restart timeout timer in case timeout gets lost
 def local_timeout_round():
     #save_consensus_state()
     timeout_info = safety.make_timeout(current_round, blocktree.high_qc, last_round_tc)
