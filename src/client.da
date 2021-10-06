@@ -3,8 +3,8 @@ import random
 import safety
 
 class Client(process):
-	def setup(replicas:set, runner, num_requests, public_keys, private_key, id, seed):
-		output('configured to send %d requests' % num_requests)
+	def setup(replicas:set, runner, workload, public_keys, private_key, id, seed):
+		output('configured with %s workload for %d requests' % (workload.type.name, workload.count))
 		safety.public_keys = public_keys
 		safety.private_key = private_key
 		random.seed(seed)
@@ -23,7 +23,7 @@ class Client(process):
 		output('started running')
 		# send requests
 		duration = 1
-		for i in range(num_requests):
+		for i in range(workload.count):
 			# TODO include signature
 			uuid = '%xu' % random.getrandbits(16*8)
 			command = to_str() + str(i)
