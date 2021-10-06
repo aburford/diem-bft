@@ -1,11 +1,13 @@
 from uuid import uuid4
+import random
 import safety
+
 class Client(process):
-	def setup(replicas:set, runner, num_requests, public_keys, private_key, id):
+	def setup(replicas:set, runner, num_requests, public_keys, private_key, id, seed):
 		output('configured to send %d requests' % num_requests)
 		safety.public_keys = public_keys
 		safety.private_key = private_key
-		pass
+		random.seed(seed)
 	
 	# __str__ doesn't seem to work with DistAlgo...
 	def to_str():
@@ -23,15 +25,14 @@ class Client(process):
 		duration = 1
 		for i in range(num_requests):
 			# TODO include signature
-			# TODO uuid4 random seed?
-			uuid = uuid4().hex
+			uuid = '%xu' % random.getrandbits(16*8)
 			command = to_str() + str(i)
 			author = to_str()
 			txn = (command, author, uuid)
 			send(('request', txn), to=replicas)
 			committed = False
 			while not committed:
-				if await(received(('committed', _txn, commit_state_id))):
+				if await(some(received(('committed', _txn, commit_state_id)))):
 					# TODO check commit_state_id signature
 					committed = True
 				elif timeout(duration):

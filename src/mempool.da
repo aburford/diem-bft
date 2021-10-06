@@ -51,7 +51,7 @@ def commit_transactions(payload, commit_state_id, clients):
 		while len(committed) > SIZE:
 			committed.popitem(False)
 
-# not sure if we need this...
+# actually i don't think we need this...
 def reject_transactions(payload):
 	txns = payload_to_txns(payload)
 	for txn in txns:

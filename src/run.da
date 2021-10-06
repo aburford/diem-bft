@@ -32,9 +32,9 @@ class Run(process):
 		# so override __str__ to return unique index
 		# jk distalgo doesn't allow that, use to_str()
 		for i, replica in enumerate(replicas):
-			setup(replica, (replicas, clients, transmission_delay_bound, public_keys, private_keys['replica' + str(i)], i))
+			setup(replica, (replicas, clients, transmission_delay_bound, public_keys, private_keys['replica' + str(i)], i, random.random()))
 		for i, (client, n) in enumerate(zip(clients, num_requests)):
-			setup(client, (replicas, self, n, public_keys, private_keys['client' + str(i)], i))
+			setup(client, (replicas, self, n, public_keys, private_keys['client' + str(i)], i, random.random()))
 		start(replicas | clients)
 		await(each(c in clients, has=received(('done',), from_=c)))
 		output('All clients finished sending requests')
