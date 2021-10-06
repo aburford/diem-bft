@@ -51,7 +51,7 @@ class ProposalMsg:
 		self.high_commit_qc = high_commit_qc
 
 class Replica(process):
-	def setup(peers:set, clients:set, transmission_delay_bound, public_keys, private_key, id, seed):
+	def setup(peers:set, clients:set, transmission_delay_bound, public_keys, private_key, id, seed, server_ids):
 		safety.public_keys = public_keys
 		safety.private_key = private_key
 		recent_proposals = deque()
@@ -75,7 +75,7 @@ class Replica(process):
 			if await(round_done):
 				pass
 			elif timeout(duration):
-				pacemaker.local_timeout_round()
+				pacemaker.local_timeout_round(broadcast)
 		output('finished running')
 	
 	# Procedure start event processing(M)

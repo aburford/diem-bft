@@ -1,14 +1,14 @@
 from replica import Replica
+from replicafi import ReplicaFI
 from client import Client
 import leaderelection
 import random
 from nacl.signing import SigningKey
 import sys
-from collections import namedtuple
-from enum import Enum
+from config import *
 
 class Run(process):
-	def setup(config):
+	def setup(config, failure_config):
 		self.num_replicas = config.num_replicas
 		self.num_faulty = config.num_faulty
 		self.workloads = config.workloads
@@ -17,53 +17,37 @@ class Run(process):
 			self.seed = random.randomint(0, sys.maxsize)
 		else:
 			self.seed = config.seed
+		self.failure_config = failure_config
 		output('using random seed: %d' % self.seed)
 
 	def run():
 		num_clients = sum([wkld.num_clients for wkld in self.workloads])
 		output('Starting run with %d replicas, %d faulty replicas, and %d clients' % (num_replicas, num_faulty, num_clients))
-		replicas = new(Replica, num=num_replicas)
-		clients = new(Client, num=num_clients)
+		replicas = list(new(ReplicaFI, num=num_replicas))
+		clients = list(new(Client, num=num_clients))
 		random.seed(seed)
-		private_keys = {'replica' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big')) for i in range(num_replicas)}
-		private_keys.update({'client' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big')) for i in range(num_clients)})
-		public_keys = {'replica' + str(i): private_keys['replica' + str(i)].verify_key for i in range(num_replicas)}
-		public_keys.update({'client' + str(i): private_keys['client' + str(i)].verify_key for i in range(num_clients)})
+		private_keys = {'replica' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big')) for i in range(1, num_replicas + 1)}
+		private_keys.update({'client' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big')) for i in range(1, num_clients + 1)})
+		public_keys = {'replica' + str(i): private_keys['replica' + str(i)].verify_key for i in range(1, num_replicas + 1)}
+		public_keys.update({'client' + str(i): private_keys['client' + str(i)].verify_key for i in range(1, num_clients + 1)})
+		server_ids = {replica: 'replica' + str(i) for i, replica in enumerate(replicas)}
+		server_ids.update({client: 'client' + str(i) for i, client in enumerate(clients)})
 		# we use str(replica) to get unique replica id's
 		# but these are not reproducible
 		# so override __str__ to return unique index
 		# jk distalgo doesn't allow that, use to_str()
 		for i, replica in enumerate(replicas):
-			setup(replica, (replicas, clients, transmission_delay_bound, public_keys, private_keys['replica' + str(i)], i, random.random()))
+			i += 1
+			output('setting up replicafi', replica)
+			setup(replica, (failure_config, replicas, clients, transmission_delay_bound, public_keys, private_keys['replica' + str(i)], i, random.random(), server_ids))
 		for i, (client, workload) in enumerate(zip(clients, workloads)):
+			i += 1
 			setup(client, (replicas, self, workload, public_keys, private_keys['client' + str(i)], i, random.random()))
-		start(replicas | clients)
+		start(replicas + clients)
 		await(each(c in clients, has=received(('done',), from_=c)))
 		output('All clients finished sending requests')
 		send(('done',), to=replicas)
 
-FailureConfig = namedtuple('FailureConfig', ['failures', 'seed'], defaults=(None))
-Failure = namedtuple('Failure', ['src', 'dest', 'msg_type', 'round', 'prob', 'fail_type', 'val', 'attr'], defaults=(None, None))
-
-class MsgType(Enum):
-	Proposal = 1
-	QC = 2
-	TimeOut = 3
-	Vote = 4
-	Wildcard = 5 # matches all message types
-
-class FailType(Enum):
-	MsgLoss = 1
-	Delay = 2
-	SetAttr = 3
-
-Workload = namedtuple('Workload', ['type', 'count', 'num_clients', 'delays'], defaults=([],))
-Config = namedtuple('Config', ['num_replicas', 'num_faulty', 'workloads', 'transmission_delay_bound', 'seed'], defaults=(None,))
-
-class WorkloadType(Enum):
-	retransmit = 1
-	flood = 2
-	timed = 3
 
 def main():
 	configs = [
@@ -81,6 +65,21 @@ def main():
 			seed = 0
 		)
 	]
-	for config in configs:
-		r = new(Run, (config,))
+	failure_configs = [
+		FailureConfig(
+			failures = [
+				Failure(
+					src = '_',
+					dest = 'leader',
+					msg_type = MsgType.Proposal,
+					round = 0,
+					prob = 1,
+					fail_type = FailType.MsgLoss
+				)
+			],
+			seed = 0
+		)
+	]
+	for config, failure_config in zip(configs, failure_configs):
+		r = new(Run, (config, failure_config))
 		start(r)

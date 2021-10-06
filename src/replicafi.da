@@ -1,0 +1,52 @@
+from replica import Replica
+import pacemaker
+import leaderelection
+import random
+import safety
+from config import *
+from time import sleep
+
+
+class ReplicaFI(process, Replica):
+	def setup(failure_config, peers:set, clients:set, transmission_delay_bound, public_keys, private_key, id, seed, server_ids):
+		super().setup(peers, clients, transmission_delay_bound, public_keys, private_key, id, seed, server_ids)
+		random.seed(failure_config.seed)
+	
+	def send(m, to):
+		if isinstance(to, list):
+			for dst in to:
+				send(m, to=dst)
+			return
+		prob_success = 1
+		delay = 0
+		msg_type = m[0]
+		for failure in failure_config.failures:
+			if failure.msg_type != MsgType.Wildcard and failure.msg_type.value != msg_type:
+				continue
+			if failure.round != pacemaker.current_round:
+				continue
+			if not (failure.src == id or failure.src == '_' or failure.src == 'leader' and self == leaderelection.get_leader(pacemaker.current_round)):
+				continue
+			if not (failure.dest == server_ids[to] or failure.dest == '_' or failure.dest == 'leader' and to == leaderelection.get_leader(pacemaker.current_round)):
+				continue
+			if failure.fail_type == FailType.MsgLoss:
+				output('LOSING MESSAGE')
+				prob_success *= (1 - failure.prob)
+			elif failure.fail_type == FailType.Delay and random.random() < failure.prob:
+				delay += failure.val
+			elif failure.fail_type == FailType.SetAttr and random.random() < failure.prob:
+				# TODO confirm that the global variables in these modules are shared across
+				# parent/child classes
+				if failure.attr == 'last_vote_round':
+					safety.last_vote_round = failure.val
+				elif failure.attr == 'current_round':
+					pacemaker.current_round = failure.val
+		# we could delay even if message fails to send
+		# it's left unclear in assignment document
+		if random.random() < prob_success:
+			# TODO would it make sense to have a yield point here?
+			sleep(delay)
+			super().send(m, to)
+		else:
+			output('LOST MESSAGE')
+				

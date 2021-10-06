@@ -1,0 +1,28 @@
+from collections import namedtuple
+from enum import Enum
+
+FailureConfig = namedtuple('FailureConfig', ['failures', 'seed'], defaults=(None))
+Failure = namedtuple('Failure', ['src', 'dest', 'msg_type', 'round', 'prob', 'fail_type', 'val', 'attr'], defaults=(None, None))
+
+# TODO don't even know what a qc message is...
+class MsgType(Enum):
+	Proposal = 'proposal'
+	QC = 'qc'
+	TimeOut = 'timeout'
+	Vote = 'vote'
+	Wildcard = '*' # matches all message types
+
+class FailType(Enum):
+	MsgLoss = 1
+	Delay = 2
+	SetAttr = 3
+
+# timeout is used to flood and timed
+# delays is used for timed
+Workload = namedtuple('Workload', ['type', 'count', 'num_clients', 'timeout', 'delays'], defaults=(1, []))
+Config = namedtuple('Config', ['num_replicas', 'num_faulty', 'workloads', 'transmission_delay_bound', 'seed'], defaults=(None,))
+
+class WorkloadType(Enum):
+	retransmit = 1
+	flood = 2
+	timed = 3
