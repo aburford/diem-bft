@@ -1,68 +1,145 @@
 import nacl.encoding
 import nacl.hash
-from ledger import *
-from blocktree import *
+import ledger 
+import blocktree 
+from nacl.signing import SigningKey
+import replica
+import pickle
+#TODO:generate signatures, and verify them
+# Any valid vote is thus prepared and signed by the Safety module,which has the private keys
 
-private_key = 0# Own private key
-public_keys = {} # Public keys of all validators
+# generates votes based on 
+u = None # a str representing replica id
+private_key = None
+# Own private key
+public_keys = {} # Public keys of all validators, a dictionary.
 highest_vote_round = 0 # initially 0
 highest_qc_round = 0
 # ----- private functions---------
+# Procedure increase highest vote round(round)
+# | commit not to vote in rounds lower than round
+# └ highest vote round ← max{round, highest vote round}
 def __increase_highest_vote_round(round):
-    #commit not to vote in rounds lower than round
     highest_vote_round = max(round, highest_vote_round)
+
+# Procedure update highest qc round(qc round)
+# └highest qc round ← max{qc round, highest qc round}
 def __update_highest_qc_round(qc_round):
     highest_qc_round = max(qc_round, highest_qc_round)
+
+# Function consecutive(block round, round)
+# └return round + 1 = block round
 def __consecutive(block_round, round):
     return round + 1 == block_round
+
+# Function safe to extend(block round, qc round, tc)
+# └return consecutive(block round, tc.round) ∧ qc round ≥ max{tc.tmo high qc rounds}
 def __safe_to_extend(block_round, qc_round, tc):
     return __consecutive(block_round, tc.round) and qc_round >= max(tc.tmo_high_qc_rounds)
+
+# Function safe to vote(block round, qc round, tc)
+# | if block round ≤ max{highest vote round, qc round} then
+# | └return false
+# └return consecutive(block round, qc round) ∨ safe to extend(block round, qc round, tc)
 def __safe_to_vote(block_round, qc_round, tc):
     if block_round <= max(highest_vote_round, qc_round):
-        # 1. must vote in monotonically increasing rounds
-        # 2. must extend a smaller round
         return False
-# Extending qc from previous round or safe to extend due to tc
     return __consecutive(block_round, qc_round) or __safe_to_extend(block_round, qc_round, tc)
+
+# Function safe to timeout(round, qc round, tc)
+# | if qc round < highest qc round ∨ round ≤ max{highest vote round − 1, qc round} then
+# | └return false
+# └return consecutive(round, qc round) ∨ consecutive(round, tc.round)
 def __safe_to_timeout(round, qc_round, tc):
     if qc_round < highest_qc_round or round <= max(highest_vote_round - 1, qc_round):
-# respect highest qc round and don’t timeout in a past round
         return False
-# qc or tc must allow entering the round to timeout
     return __consecutive(round, qc_round) or __consecutive(round, tc.round)
+
+# Function commit state id candidate(block round, qc)
+# | if consecutive(block round, qc.vote info.round) then
+# | | return Ledger.pending state(qc.id)
+# | else
+# └return ⊥
 def __commit_state_id_candidate(block_round, qc):
-# find the committed id in case a qc is formed in the vote round
     if __consecutive(block_round, qc.vote_info.round):
-        return pending_state(qc.id)
+        return ledger.pending_state(qc.id)
     else:
         return None
 
-def __valid_signatures(b,last_tc):
-    pass
+# TODO can this block be created by other satefy modules ??
+def __valid_signatures(block_or_qc, last_tc):
+    try:
+        public_key = public_keys[u]
+        qc = None
+        if isinstance(block_or_qc,blocktree.Block):
+            block = block_or_qc
+            public_key.verify(block.qc.author_signature)
+            qc = block.qc
+        else:
+            qc = block_or_qc
 
+        for signature in qc.signatures:
+            public_key.verify(signature)
+
+        for signature in last_tc.tmo_signatures:
+            public_key.verify(signature)
+
+        return True
+    except:
+        return False 
+        
 #------------- public functions ------------------
+
+def sign_u(*payloads):
+    payloads_bytes = pickle.dumps(payloads)
+    return private_key.sign(payloads_bytes) # sign the input in bytes with private key.
+# Function make vote(b, last tc)
+# | qc round ← b.qc.vote info.round
+# | if valid signatures(b, last tc) ∧ safe to vote(b.round, qc round, last tc) then
+# | | update highest qc round(qc round) // Protect qc round
+# | | increase highest vote round(b.round) // Don’t vote again in this (or lower) round
+# | | vote info ← VoteInfo(
+# | | | (id, round) ← (b.id, b.round),
+# | | | (parent id, parent round) ← (b.qc.vote info.id, qc round)
+# | | └ exec state id ← Ledger.pending state(b.id))
+# | | ledger commit info ←LedgerCommitInfo(
+# | | | commit state id ← commit state id candidate(b.round, b.qc),
+# | | └ vote info hash ← hash(vote info))
+# | └ return VoteMsg(vote info, ledger commit info, Block-Tree.high commit qc)
+# └ return ⊥
+
 def make_vote(b, last_tc):
     qc_round = b.qc.vote_info.round
     if __valid_signatures(b, last_tc) and __safe_to_vote(b.round, qc_round, last_tc):
         __update_highest_qc_round(qc_round) # Protect qc round
         __increase_highest_vote_round(b.round) # Don’t vote again in this (or lower) round
         # VoteInfo carries the potential QC info with ids and rounds of the parent QC
-        vote_info = VoteInfo(
+        vote_info = blocktree.VoteInfo(
                         id = b.id,
                         round = b.round,
                         parent_id = b.qc.vote_info.id,
-                        parent_round= qc_round, # no comma in paper...
-                        exec_state_id = pending_state(b.id)
+                        parent_round= qc_round, 
+                        exec_state_id = ledger.pending_state(b.id)
                     )
-        ledger_commit_info  = LedgerCommitInfo(
+        ledger_commit_info  = blocktree.LedgerCommitInfo(
                             commit_state_id = __commit_state_id_candidate(b.round, b.qc),
                             vote_info_hash = nacl.hash.sha256(vote_info)) # sha256 hash here
-        return VoteMsg(vote_info, ledger_commit_info, high_commit_qc)
+
+        vote_msg = blocktree.VoteMsg(vote_info, ledger_commit_info, blocktree.high_commit_qc)
+
+        return vote_msg
     return None
 
+# Function make timeout(round, high qc, last tc)
+# | qc round ← high qc.vote info.round;
+# | if valid signatures(high qc, last tc) ∧ safe to timeout(round, qc round, last tc) then
+# | | increase highest vote round(round) // Stop voting for round
+# | └ return TimeoutInfo(round, high qc)
+# └ return ⊥
 def make_timeout(round, high_qc, last_tc):
     qc_round = high_qc.vote_info.round
     if __valid_signatures(high_qc, last_tc) and __safe_to_timeout(round, qc_round, last_tc):
         __increase_highest_vote_round(round) # Stop voting for round
-        return TimeoutInfo(round, high_qc)
+        timeout_info = replica.TimeoutInfo(round, high_qc)
+        return timeout_info
     return None
