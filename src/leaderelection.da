@@ -5,7 +5,7 @@ import random
 
 validators = [] #The list of current validators
 window_size = 5 # A parameter for the leader reputation algorithm
-exclude_size = 10 # Between f and 2f, number of excluded authors of last committed blocks
+exclude_size = None # Between f and 2f, number of excluded authors of last committed blocks
 reputation_leaders = {} # Map from round numbers to leaders elected due to the reputation scheme
 
 def elect_reputation_leader(qc):
@@ -39,7 +39,3 @@ def get_leader(round):
     if leader != None:
         return leader # Reputation-based leader
     return validators[math.floor(round/2) % len(validators)] 
-
-
-
-#print(pacemaker.get_round_timer(32))

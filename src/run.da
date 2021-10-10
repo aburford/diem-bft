@@ -66,6 +66,7 @@ class Run(process):
                     i,
                     random.random(),
                     server_ids,
+                    num_faulty
                 )
             )
         for i, (client, workload) in enumerate(zip(clients, workloads)):

@@ -60,25 +60,29 @@ class Replica(process):
         id,
         seed,
         server_ids,
+        num_faulty
     ):
         safety.public_keys = public_keys
         safety.private_key = private_key
         recent_proposals = deque()
         leaderelection.validators = sorted(list(peers))
         pacemaker.transmission_delay_bound = transmission_delay_bound
+        pacemaker.f = num_faulty
+        pacemaker.exclude_size = num_faulty
         blocktree.u = to_str()
+        blocktree.f = num_faulty
 
         # Create a genesis block and QC with fake vote info
-        vote_info = blocktree.VoteInfo(
-            block_id = -1,
-            vote_round = "",
-            parent_id = None,
-            parent_round = None, # no comma in paper...
-            exec_state_id = None
-        )
         ledger_commit_info = blocktree.LedgerCommitInfo(
             commit_state_id = None,
             vote_info_hash = None
+        )
+        vote_info = blocktree.VoteInfo(
+            block_id = -1,
+            vote_round = -1,
+            parent_id = None,
+            parent_round = -2, # no comma in paper...
+            exec_state_id = None
         )
         blocktree.high_qc = blocktree.QC(
             vote_info = vote_info,
