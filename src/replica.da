@@ -24,7 +24,7 @@ class Replica(process):
     ):
         safety.public_keys = public_keys
         safety.private_key = private_key
-		safety.u = to_str()
+        safety.u = to_str()
 
         recent_proposals = deque()
         leaderelection.validators = sorted(list(replica_ids))
@@ -170,7 +170,7 @@ class Replica(process):
                 mempool.get_transactions(exclude_payloads),
                 pacemaker.current_round
             )
-            broadcast(('proposal', ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
+            broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
 
     def broadcast(msg):
         send(msg, to=replica_ids)

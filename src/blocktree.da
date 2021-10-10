@@ -68,12 +68,12 @@ class LedgerCommitInfo:
 # │ sender ← u; // Added automatically when constructed
 # └ signature ← signu(ledger commit info); // Signed automatically when constructed
 class VoteMsg:
-	def __init__(self, vote_info, ledger_commit_info, high_commit_qc):
-		self.vote_info = vote_info
-		self.ledger_commit_info = ledger_commit_info
-		self.high_commit_qc = high_commit_qc
-		self.sender = u
-		self.signature = safety.sign_u(ledget_commit_info)
+    def __init__(self, vote_info, ledger_commit_info, high_commit_qc):
+        self.vote_info = vote_info
+        self.ledger_commit_info = ledger_commit_info
+        self.high_commit_qc = high_commit_qc
+        self.sender = u
+        self.signature = safety.sign_u(ledget_commit_info)
 
 # // QC is a VoteMsg with multiple signatures
 # QC
@@ -83,11 +83,11 @@ class VoteMsg:
 # │ author ← u; // The validator that produced the qc
 # └ author_signature ← signu(signatures);
 class QC:
-	def __init__(self, vote_info, ledger_commit_info, signatures):
-		self.vote_info = vote_info
-		self.ledger_commit_info = ledger_commit_info
-		self.signatures = signatures
-		self.author = u
+    def __init__(self, vote_info, ledger_commit_info, signatures):
+        self.vote_info = vote_info
+        self.ledger_commit_info = ledger_commit_info
+        self.signatures = signatures
+        self.author = u
         self.author_signature = safety.sign_u(signatures)
 
 # Block
@@ -113,12 +113,12 @@ class Block:
 # │ sender ← u; // Added automatically when constructed
 # └ signature ← signu (round, high qc.round); // Signed automatically when constructed
 class TimeoutInfo:
-	def __init__(self, round, high_qc):
-		self.round = round
-		self.high_qc = high_qc
-		self.sender = u 
-		self.signature = safety.sign_u(round,high_qc.round)
-		
+    def __init__(self, round, high_qc):
+        self.round = round
+        self.high_qc = high_qc
+        self.sender = u 
+        self.signature = safety.sign_u(round,high_qc.round)
+        
 # TC
 # │ round; // All timeout messages that form TC have the same round
 # │ tmo_high_qc_rounds; // A vector of 2f + 1 high qc round numbers of timeout messages that form TC
@@ -149,7 +149,7 @@ class ProposalMsg:
         self.block = block
         self.last_round_tc = last_round_tc
         self.high_commit_qc = high_commit_qc
-		self.signature = safety.sign_u(block.id)
+        self.signature = safety.sign_u(block.id)
 
 # QC with the highest round
 def max_qc(qc1, qc2):
