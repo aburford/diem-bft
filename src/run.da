@@ -49,10 +49,6 @@ class Run(process):
         client_ids = {'client' + str(i) for i in range(num_clients)}
         server_ids = {replica: 'replica' + str(i) for i, replica in enumerate(replicas)}
         server_ids.update({client: 'client' + str(i) for i, client in enumerate(clients)})
-        genesis_signatures = {
-            'replica' + str(i): private_keys['replica' + str(i)].sign(b'')
-            for i in range(num_clients)
-        }
 
         # we use str(replica) to get unique replica id's
         # but these are not reproducible
@@ -72,7 +68,6 @@ class Run(process):
                     i,
                     random.random(),
                     server_ids,
-                    genesis_signatures,
                     num_faulty
                 )
             )

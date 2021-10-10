@@ -19,7 +19,6 @@ class Replica(process):
         id,
         seed,
         server_ids,
-        genesis_signatures,
         num_faulty
     ):
         safety.public_keys = public_keys
@@ -33,29 +32,6 @@ class Replica(process):
         pacemaker.exclude_size = num_faulty
         blocktree.u = to_str()
         blocktree.f = num_faulty
-
-        # Create a genesis block and QC with fake vote info
-        ledger_commit_info = blocktree.LedgerCommitInfo(
-            commit_state_id = None,
-            vote_info_hash = None
-        )
-        vote_info = blocktree.VoteInfo(
-            block_id = -1,
-            vote_round = -1,
-            parent_id = None,
-            parent_round = -2, # no comma in paper...
-            exec_state_id = None
-        )
-        blocktree.high_qc = blocktree.QC(
-            vote_info = vote_info,
-            ledger_commit_info = ledger_commit_info,
-            signatures = genesis_signatures
-        )
-        genesis_block = blocktree.generate_block(
-            txns = '',
-            current_round = 0,
-        )
-        state_id = blocktree.execute_and_insert(genesis_block)
 
         random.seed(seed)
     
@@ -125,7 +101,8 @@ class Replica(process):
     # │ if vote_msg ≠ ⊥ then
     # └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
     def process_proposal_msg(P, sender):
-        process_certificate_qc(P.block.qc)
+        if P.block.qc != None:
+            process_certificate_qc(P.block.qc)
         # TODO: double check this
         if P.high_commit_qc != None:
             process_certificate_qc(P.high_commit_qc)

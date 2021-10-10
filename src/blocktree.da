@@ -16,7 +16,8 @@ class PendingBlockTree:
     def add(self, block):
         pending_block = PendingBlock(block)
         self.id_to_block[block.id] = pending_block
-        if block.qc.vote_info.id in self.id_to_block:
+        if block.qc != None and \
+                block.qc.vote_info.id in self.id_to_block:
             self.id_to_block[block.qc.vote_info.id].children.add(pending_block)
 
     def dfs(self, new_tree, pending_block):
@@ -187,7 +188,10 @@ def process_qc(qc):
 # │ Ledger.speculate(b.qc.block_id, b.id, b.payload)
 # └ pending_block_tree.add(b)
 def execute_and_insert(b):
-    ledger.speculate(b.qc.vote_info.id, b.id, b.payload)
+    if b.qc == None:
+        ledger.speculate(None, b.id, b.payload)
+    else:
+        ledger.speculate(b.qc.vote_info.id, b.id, b.payload)
     pending_block_tree.add(b)
 
 # Function process_vote(v)

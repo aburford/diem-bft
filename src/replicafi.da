@@ -19,7 +19,6 @@ class ReplicaFI(process, Replica):
         id,
         seed,
         server_ids,
-        genesis_signatures,
         num_faulty
     ):
         super().setup(
@@ -31,7 +30,6 @@ class ReplicaFI(process, Replica):
             id,
             seed,
             server_ids,
-            genesis_signatures,
             num_faulty
         )
         random.seed(failure_config.seed)
