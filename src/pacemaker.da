@@ -1,5 +1,6 @@
 import safety 
 import blocktree 
+import replica
 
 current_round = 0 # Initially zero
 last_round_tc = None # Initially ⊥
@@ -30,7 +31,7 @@ def local_timeout_round(broadcast):
     #save_consensus_state()
     timeout_info = safety.make_timeout(current_round, blocktree.high_qc, last_round_tc)
 
-    timeout_msg = TimeoutMsg(timeout_info, last_round_tc, blocktree.high_commit_qc)
+    timeout_msg = replica.TimeoutMsg(timeout_info, last_round_tc, blocktree.high_commit_qc)
     broadcast(('timeout', timeout_msg))
 
 def process_remote_timeout(tmo):
@@ -59,9 +60,9 @@ def advance_round_tc(tc):
     start_timer(tc.round + 1)
     return True
 
-def advance_round_qc(qc):
-    if qc.vote_info.round < current_round:
+def advance_round_qc(qc_round):
+    if qc_round < current_round:
         return False
     last_round_tc = None
-    start_timer(qc.vote_info.round + 1)
+    start_timer(qc_round + 1)
     return True
