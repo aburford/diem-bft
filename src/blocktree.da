@@ -84,10 +84,10 @@ class QC:
         self.vote_info = vote_info
         self.ledger_commit_info = ledger_commit_info
         self.signatures = signatures
-        if signatures != None:
-            self.author_signature = safety.private_key.sign("".join(signatures))
-        else:
-            self.author_signature = None
+        self.author = u
+        self.author_signature = safety.private_key.sign(
+            ''.join(signatures).encode('utf-8')
+        )
 
 # Block
 # │ author; // The author of the block, may not be the same as qc.author after view-change
@@ -102,7 +102,8 @@ class Block:
         self.payload = payload
         self.qc = qc
         # TODO: add author, qc.vote_info.id, and qc.signatures
-        self.id = HASHER(self.round.to_bytes(8, "big") + self.payload.encode("utf-8"))
+        self.id = HASHER(self.round.to_bytes(8, 'big') + \
+            self.payload.encode('utf-8'))
 
 # QC with the highest round
 def max_qc(qc1, qc2):

@@ -9,23 +9,27 @@ exclude_size = None # Between f and 2f, number of excluded authors of last commi
 reputation_leaders = {} # Map from round numbers to leaders elected due to the reputation scheme
 
 def elect_reputation_leader(qc):
-    active_validators = {} # validators that signed the last window size committed blocks
-    last_authors = {} # ordered set of authors of last exclude size committed blocks
+    active_validators = set() # validators that signed the last window size committed blocks
+    last_authors = set() # ordered set of authors of last exclude size committed blocks
     current_qc = qc
     i = 0
     while i < window_size or len(last_authors) < exclude_size:
+        if i < window_size:
+            active_validators = active_validators.union(set(current_qc.signatures.keys()))
+        # Break early if the block history isn't long enough
+        if current_qc.vote_info.parent_round < 0:
+            break
         current_block = ledger.committed_block(current_qc.vote_info.parent_id)
         block_author = current_block.author
-        if i < window_size:
-            active_validators = active_validators.union(current_qc.signatures.signers())
         # |current qc.signatures.signers()| ≥ 2f + 1
         if len(last_authors) < exclude_size:
-            last_authors = last_authors.union(block_author)
+            last_authors = last_authors.add(block_author)
         current_qc = current_block.qc
         i = i + 1
     active_validators = active_validators.difference(last_authors) # contains at least 1 validator
-    random.seed(qc.voteinfo.round)
-    return random.choice(active_validators)  #active_validators.pick_one(seed = qc.voteinfo.round)
+    random.seed(qc.vote_info.round)
+    # active_validators.pick_one(seed = qc.voteinfo.round)
+    return random.choice(list(active_validators))
 
 def update_leaders(qc):
     extended_round = qc.vote_info.parent_round

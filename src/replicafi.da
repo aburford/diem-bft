@@ -8,8 +8,8 @@ from time import sleep
 
 
 class ReplicaFI(process, Replica):
-	def setup(failure_config, peers:set, clients:set, transmission_delay_bound, public_keys, private_key, id, seed, server_ids, num_faulty):
-		super().setup(peers, clients, transmission_delay_bound, public_keys, private_key, id, seed, server_ids, num_faulty)
+	def setup(failure_config, peers:set, clients:set, transmission_delay_bound, public_keys, private_key, id, seed, server_ids, genesis_signatures, num_faulty):
+		super().setup(peers, clients, transmission_delay_bound, public_keys, private_key, id, seed, server_ids, genesis_signatures, num_faulty)
 		random.seed(failure_config.seed)
 	
 	def send(m, to):

@@ -60,6 +60,7 @@ class Replica(process):
         id,
         seed,
         server_ids,
+        genesis_signatures,
         num_faulty
     ):
         safety.public_keys = public_keys
@@ -87,10 +88,10 @@ class Replica(process):
         blocktree.high_qc = blocktree.QC(
             vote_info = vote_info,
             ledger_commit_info = ledger_commit_info,
-            signatures = None
+            signatures = genesis_signatures
         )
         genesis_block = blocktree.generate_block(
-            txns = "",
+            txns = '',
             current_round = 0,
         )
         state_id = blocktree.execute_and_insert(genesis_block)

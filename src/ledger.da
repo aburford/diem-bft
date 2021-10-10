@@ -31,7 +31,7 @@ class LedgerState:
             self.parent_state_id = b'' 
 
         self.id = HASHER(
-            self.parent_state_id + txns.encode("utf-8")
+            self.parent_state_id + txns.encode('utf-8')
         )
 
 # speculate(prev_block_id, block_id, txns) // apply txns speculatively
