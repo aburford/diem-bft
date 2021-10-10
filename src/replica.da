@@ -148,7 +148,7 @@ class Replica(process):
         if committed_payload != None:
             mempool.commit_transactions(committed_payload, commit_state_id, clients)
         leaderelection.update_leaders(qc)
-        pacemaker.advance_round(qc.vote_info.round)
+        pacemaker.advance_round_qc(qc.vote_info.round)
     
     # Procedure process_proposal_msg(P)
     # │ process_certificate_qc(P.block.qc)
@@ -164,7 +164,9 @@ class Replica(process):
     # └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
     def process_proposal_msg(P, sender):
         process_certificate_qc(P.block.qc)
-        process_certificate_qc(P.high_commit_qc)
+        # TODO: double check this
+        if P.high_commit_qc != None:
+            process_certificate_qc(P.high_commit_qc)
         pacemaker.advance_round_tc(P.last_round_tc)
         current_round = pacemaker.current_round
         leader = leaderelection.get_leader(current_round)
@@ -181,7 +183,7 @@ class Replica(process):
         pacemaker.advance_round_tc(M.last_round_tc)
         tc = pacemaker.process_remote_timeout(M)
         if tc:
-            pacemaker.advance_round(tc)
+            pacemaker.advance_round_tc(tc)
             process_new_round_event(tc)
 
     def process_vote_msg(M, sender):
