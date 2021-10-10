@@ -3,11 +3,25 @@ import ledger
 import math
 import random
 
-validators = [] #The list of current validators
+validators = [] # The list of current validators, assigned by replica
 window_size = 5 # A parameter for the leader reputation algorithm
 exclude_size = None # Between f and 2f, number of excluded authors of last committed blocks
 reputation_leaders = {} # Map from round numbers to leaders elected due to the reputation scheme
 
+# Function elect reputation leader(qc)
+# | active validators ← ∅ // validators that signed the last window size committed blocks
+# | last authors ← ∅ // ordered set of authors of last exclude size committed blocks
+# | current qc ← qc
+# | for i = 0; i < window size ∨ |last authors| < exclude size; i ← i + 1 do
+# | | current block ← Ledger.committed block(current qc.vote info.parent id)
+# | | block author ← current block.author
+# | | if i < window size then
+# | | └active validators ← active validators ∪ current qc.signatures.signers()
+# | | if |last authors| < exclude size then
+# | | └last authors ← last authors ∪ {block author}
+# | └current qc ← current block.qc
+# | active validators ← active validators \ last authors // contains at least 1 validator
+# └ return active validators.pick one(seed ← qc.voteinfo.round)
 def elect_reputation_leader(qc):
     active_validators = set() # validators that signed the last window size committed blocks
     last_authors = set() # ordered set of authors of last exclude size committed blocks
@@ -31,6 +45,13 @@ def elect_reputation_leader(qc):
     # active_validators.pick_one(seed = qc.voteinfo.round)
     return random.choice(list(active_validators))
 
+# Procedure update leaders(qc)
+# | extended round ← qc.vote info.parent round
+# | qc round ← qc.vote info.round
+# | current round ← PaceMaker.current round
+# | if extended round + 1 = qc round ∧ qc round + 1 = current round then
+# | └reputation leaders[current round + 1] ← elect reputation leader(qc) 
+# └
 def update_leaders(qc):
     extended_round = qc.vote_info.parent_round
     qc_round = qc.vote_info.round
@@ -38,6 +59,10 @@ def update_leaders(qc):
     if extended_round + 1 == qc_round and qc_round + 1 == current_round:
         reputation_leaders[current_round + 1] = elect_reputation_leader(qc)
 
+# Function get leader(round)
+# | if (round, leader) ∈ reputation leaders then
+# |  └return leader // Reputation-based leader
+# └ return validators[round/2 mod |validators|]
 def get_leader(round):
     leader = reputation_leaders.get(round)
     if leader != None:

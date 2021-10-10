@@ -9,47 +9,6 @@ import leaderelection
 import safety
 import random
 
-# TimeoutInfo
-# │ round;
-# │ high_qc;
-# │ sender ← u; // Added automatically when constructed
-# └ signature ← signu (round, high qc.round); // Signed automatically when constructed
-class TimeoutInfo:
-    def __init__(self, round, high_qc):
-        self.round = round
-        self.high_qc = high_qc
-
-# TC
-# │ round; // All timeout messages that form TC have the same round
-# │ tmo_high_qc_rounds; // A vector of 2f + 1 high qc round numbers of timeout messages that form TC
-# └ tmo_signatures; // A vector of 2f + 1 validator signatures on (round, respective high qc round)
-class TC:
-    def __init__(self, round, tmo_high_qc_rounds, tmo_signatures):
-        self.round = round
-        self.tmo_high_qc_rounds = tmo_high_qc_rounds
-        self.tmo_signatures = tmo_signatures
-
-# TimeoutMsg
-# │ tmo_info; // TimeoutInfo for some round with a high qc
-# │ last_round_tc; // TC for tmo_info.round − 1 if tmo_info.high_qc.round ̸= tmo_info.round − 1, else ⊥
-# └ high_commit_qc; // QC to synchronize on committed blocks
-class TimeoutMsg:
-    def __init__(self, tmo_info, last_round_tc, high_commit_qc):
-        self.tmo_info = tmo_info
-        self.last_round_tc = last_round_tc
-        self.high_commit_qc = high_commit_qc
-
-# ProposalMsg
-# │ block;
-# │ last_round_tc; // TC for block.round − 1 if block.qc.vote_info.round ̸= block.round − 1, else ⊥
-# │ high_commit_qc; // QC to synchronize on committed blocks
-# └ signature ← signu(block.id);
-class ProposalMsg:
-    def __init__(self, block, last_round_tc, high_commit_qc):
-        self.block = block
-        self.last_round_tc = last_round_tc
-        self.high_commit_qc = high_commit_qc
-
 class Replica(process):
     def setup(
         replica_ids,
@@ -65,6 +24,8 @@ class Replica(process):
     ):
         safety.public_keys = public_keys
         safety.private_key = private_key
+		safety.u = to_str()
+
         recent_proposals = deque()
         leaderelection.validators = sorted(list(replica_ids))
         pacemaker.transmission_delay_bound = transmission_delay_bound

@@ -1,17 +1,20 @@
 import safety 
 import blocktree 
-import replica
 
 current_round = 0 # Initially zero
 last_round_tc = None # Initially ⊥
 pending_timeouts = [] # Timeouts per round
-
+transmission_delay_bound = 0
+# |Function get round timer(r)
+# └ return round timer formula  
 def get_round_timer(r):
-    #return 4 * num_faulty
     return 4 * transmission_delay_bound  # Δ is in configuration, to be rename...
-    #return 4 * r
 
-#def start_timer(new_round):
+def start_timer(new_round): 
+    pass
+
+def stop_timer(current_round):
+    pass
     # not recommend to use await()
     #stop_timer(current_round)
     #current_round = new_round
@@ -25,16 +28,37 @@ def get_round_timer(r):
     #    local_timeout_round()
     #for duration in get_round_timer(current_round):
         #for round current round: 
-            #start_local_timer                     
+            #start_local_timer     
+
+
+# Procedure local timeout round()
+# save consensus state()
+# timeout info ← Safety.make timeout(current round, Block-Tree.high qc, last round tc)
+# broadcast TimeoutMsghtimeout info, last round tc, Block-Tree.high commit qci
+
 # TODO restart timeout timer in case timeout gets lost
 def local_timeout_round(broadcast):
     #save_consensus_state()
     timeout_info = safety.make_timeout(current_round, blocktree.high_qc, last_round_tc)
-
     if timeout_info:
         timeout_msg = replica.TimeoutMsg(timeout_info, last_round_tc, blocktree.high_commit_qc)
         broadcast(('timeout', timeout_msg))
 
+# Function process remote timeout(tmo)
+# tmo info ← tmo.tmo info
+# if tmo info.round < current round then
+# return ⊥
+# if tmo info.sender 6∈ pending timeouts[tmo info.round].senders then
+# pending timeouts[tmo info.round] ← pending timeouts[tmo info.round] ∪ {tmo info}
+# if |pending timeouts[tmo info.round].senders| == f + 1 then
+# stop timer(current round)
+# local timeout round() // Bracha timeout
+# if |pending timeouts[tmo info.round].senders| == 2f + 1 then
+# return TC h
+# round ← tmo info.round,
+# tmo high qc rounds ← {t.high qc.round | t ∈ pending timeouts[tmo info.round]},
+# signatures ← {t.signature | t ∈ pending timeouts[tmo info.round]}i)
+# return ⊥
 def process_remote_timeout(tmo):
     tmo_info = tmo.tmo_info
     if tmo_info.round < current_round: 
@@ -42,18 +66,24 @@ def process_remote_timeout(tmo):
     if tmo_info.sender not in pending_timeouts[tmo_info.round].senders:
         pending_timeouts[tmo_info.round] = pending_timeouts[tmo_info.round].union(tmo_info)
     if len(pending_timeouts[tmo_info.round].senders) == f + 1: 
-        stop_timer(current_round)
+        #stop_timer(current_round) #temp ignored
         local_timeout_round()  #Bracha timeout
     if len(pending_timeouts[tmo_info.round].senders) == 2*f + 1: 
         round = tmo_info.round
         # tmo high qc rounds ← {t.high qc.round | t ∈ pending timeouts[tmo info.round]}
         tmo_high_qc_rounds = setof(t.high_qc.round, t in pending_timeouts[tmo_info.round])
-        # signatures ← {t.signature | t ∈ pending timeouts[tmo info.round]}i)
+        # signatures ← {t.signature | t ∈ pending timeouts[tmo info.round]})
         signatures = setof(t.signature, t in pending_timeouts[tmo_info.round])
         timeout_certificate = TC(round,tmo_high_qc_rounds,signatures)
         return timeout_certificate
     return None
 
+# Function advance round tc(tc)
+# if tc = ⊥ ∨ tc.round < current round then
+# return false
+# last round tc ← tc
+# start timer(tc.round + 1)
+# return true
 def advance_round_tc(tc):
     if tc == None or  tc.round < current_round: 
         return False
@@ -61,9 +91,23 @@ def advance_round_tc(tc):
     start_timer(tc.round + 1)
     return True
 
+# Function advance round qc(qc)
+# if qc.vote info.round < current round then
+# return false
+# last round tc ← ⊥
+# start timer(qc.vote info.round + 1)
+# return true
 def advance_round_qc(qc_round):
     if qc_round < current_round:
         return False
     last_round_tc = None
     start_timer(qc_round + 1)
     return True
+
+# use a round_done variable in replica,
+# when call 'advance_round', check if it returns true -> set round_doen = true
+
+# in replica, make a function x that sets 'round_done to true'
+# in pacemaker, start_timer() calls function x
+
+# in replica setup : pacemaker.start_timer = start_timer
