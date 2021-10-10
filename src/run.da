@@ -31,25 +31,25 @@ class Run(process):
         random.seed(seed)
         private_keys = {
             'replica' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big'))
-            for i in range(1, num_replicas + 1)
+            for i in range(num_replicas)
         }
         private_keys.update({
             'client' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big'))
-            for i in range(1, num_clients + 1)
+            for i in range(num_clients)
         })
         public_keys = {
             'replica' + str(i): private_keys['replica' + str(i)].verify_key
-            for i in range(1, num_replicas + 1)
+            for i in range(num_replicas)
         }
         public_keys.update({
             'client' + str(i): private_keys['client' + str(i)].verify_key
-            for i in range(1, num_clients + 1)}
+            for i in range(num_clients)}
         )
         server_ids = {replica: 'replica' + str(i) for i, replica in enumerate(replicas)}
         server_ids.update({client: 'client' + str(i) for i, client in enumerate(clients)})
         genesis_signatures = {
             'replica' + str(i): private_keys['replica' + str(i)].sign(b'')
-            for i in range(1, num_clients + 1)
+            for i in range(num_clients)
         }
 
         # we use str(replica) to get unique replica id's
@@ -57,7 +57,6 @@ class Run(process):
         # so override __str__ to return unique index
         # jk distalgo doesn't allow that, use to_str()
         for i, replica in enumerate(replicas):
-            i += 1
             output('setting up replicafi', replica)
             setup(
                 replica, (
@@ -75,7 +74,6 @@ class Run(process):
                 )
             )
         for i, (client, workload) in enumerate(zip(clients, workloads)):
-            i += 1
             setup(client, (
                 replicas,
                 self,
@@ -110,14 +108,14 @@ def main():
     failure_configs = [
         FailureConfig(
             failures = [
-                Failure(
-                    src = '_',
-                    dest = 'leader',
-                    msg_type = MsgType.Proposal,
-                    round = 0,
-                    prob = 1,
-                    fail_type = FailType.MsgLoss
-                )
+                #Failure(
+                #    src = '_',
+                #    dest = 'leader',
+                #    msg_type = MsgType.Proposal,
+                #    round = 0,
+                #    prob = 1,
+                #    fail_type = FailType.MsgLoss
+                #)
             ],
             seed = 0
         )
