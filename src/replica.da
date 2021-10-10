@@ -52,8 +52,8 @@ class ProposalMsg:
 
 class Replica(process):
     def setup(
-        peers:set,
-        clients:set,
+        replica_ids,
+        client_ids,
         transmission_delay_bound,
         public_keys,
         private_key,
@@ -66,7 +66,7 @@ class Replica(process):
         safety.public_keys = public_keys
         safety.private_key = private_key
         recent_proposals = deque()
-        leaderelection.validators = sorted(list(peers))
+        leaderelection.validators = sorted(list(replica_ids))
         pacemaker.transmission_delay_bound = transmission_delay_bound
         pacemaker.f = num_faulty
         pacemaker.exclude_size = num_faulty
@@ -121,6 +121,7 @@ class Replica(process):
     # │ if M is a vote message then process_vote_msg(M)
     # └ if M is a timeout message then process_timeout_msg(M)
     def receive(msg=M, from_=sender):
+        sender = self.server_ids.get(sender)
         msg_type = M[0]
         output('received message %s from: %s' % (M, sender))
         if msg_type == 'proposal':
@@ -129,7 +130,7 @@ class Replica(process):
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
             process_timeout_msg(M[1], sender)
-        elif msg_type == 'request' and sender in clients:
+        elif msg_type == 'request' and sender in client_ids:
             # process request from client
             txn = M[1]
             # check if duplicate (otherwise add to mempool.pending)
@@ -170,7 +171,9 @@ class Replica(process):
         pacemaker.advance_round_tc(P.last_round_tc)
         current_round = pacemaker.current_round
         leader = leaderelection.get_leader(current_round)
-        if P.block.round != current_round or sender != leader or P.block.author != leader:
+        if P.block.round != current_round or \
+            sender != leader or \
+            P.block.author != leader:
             return
         blocktree.execute_and_insert(P.block)
         vote_msg = ('vote', safety.make_vote(P.block, P.last_round_tc))
@@ -193,7 +196,7 @@ class Replica(process):
             process_new_round_event(None)
 
     def process_new_round_event(last_tc):
-        if self == leaderelection.get_leader(pacemaker.current_round):
+        if to_str() == leaderelection.get_leader(pacemaker.current_round):
             output('%s is now leader for current round %d' % (self, pacemaker.current_round))
             # TODO in rust implementation, blockstore has path_from_commit_root method
             # which returns list of uncommitted but proposed transactions from the last committed
@@ -202,8 +205,11 @@ class Replica(process):
             # so we don't propose a duplicate txn
             # so something like this:
             exclude_payloads = [block.payload for block in blocktree.path_from_commit_root()]
-            b = blocktree.generate_block(mempool.get_transactions(exclude_payloads), pacemaker.current_round)
+            b = blocktree.generate_block(
+                mempool.get_transactions(exclude_payloads),
+                pacemaker.current_round
+            )
             broadcast(('proposal', ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
 
     def broadcast(msg):
-        send(msg, to=peers)
+        send(msg, to=replica_ids)

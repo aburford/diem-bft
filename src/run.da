@@ -45,6 +45,8 @@ class Run(process):
             'client' + str(i): private_keys['client' + str(i)].verify_key
             for i in range(num_clients)}
         )
+        replica_ids = {'replica' + str(i) for i in range(num_replicas)}
+        client_ids = {'client' + str(i) for i in range(num_clients)}
         server_ids = {replica: 'replica' + str(i) for i, replica in enumerate(replicas)}
         server_ids.update({client: 'client' + str(i) for i, client in enumerate(clients)})
         genesis_signatures = {
@@ -62,7 +64,8 @@ class Run(process):
                 replica, (
                     failure_config,
                     replicas,
-                    clients,
+                    replica_ids,
+                    client_ids,
                     transmission_delay_bound,
                     public_keys,
                     private_keys['replica' + str(i)],

@@ -8,15 +8,41 @@ from time import sleep
 
 
 class ReplicaFI(process, Replica):
-    def setup(failure_config, peers:set, clients:set, transmission_delay_bound, public_keys, private_key, id, seed, server_ids, genesis_signatures, num_faulty):
-        super().setup(peers, clients, transmission_delay_bound, public_keys, private_key, id, seed, server_ids, genesis_signatures, num_faulty)
+    def setup(
+        failure_config,
+        peers:set,
+        replica_ids,
+        client_ids,
+        transmission_delay_bound,
+        public_keys,
+        private_key,
+        id,
+        seed,
+        server_ids,
+        genesis_signatures,
+        num_faulty
+    ):
+        super().setup(
+            replica_ids,
+            client_ids,
+            transmission_delay_bound,
+            public_keys,
+            private_key,
+            id,
+            seed,
+            server_ids,
+            genesis_signatures,
+            num_faulty
+        )
         random.seed(failure_config.seed)
+        self.id_to_server = {server_ids[server]: server for server in server_ids.keys()}
     
     def send(m, to):
-        if isinstance(to, list):
+        if isinstance(to, set):
             for dst in to:
                 send(m, to=dst)
             return
+        to = self.id_to_server[to]
         prob_success = 1
         delay = 0
         msg_type = m[0]
@@ -25,9 +51,14 @@ class ReplicaFI(process, Replica):
                 continue
             if failure.round != pacemaker.current_round:
                 continue
-            if not (failure.src == id or failure.src == '_' or failure.src == 'leader' and self == leaderelection.get_leader(pacemaker.current_round)):
+            if not (failure.src == id or failure.src == '_' or \
+                    failure.src == 'leader' and \
+                    self == leaderelection.get_leader(pacemaker.current_round)):
                 continue
-            if not (failure.dest == server_ids[to] or failure.dest == '_' or failure.dest == 'leader' and to == leaderelection.get_leader(pacemaker.current_round)):
+            if not (failure.dest == server_ids[to] or \
+                    failure.dest == '_' or \
+                    failure.dest == 'leader' and \
+                    to == leaderelection.get_leader(pacemaker.current_round)):
                 continue
             if failure.fail_type == FailType.MsgLoss:
                 output('LOSING MESSAGE')
