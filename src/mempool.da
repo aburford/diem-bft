@@ -7,11 +7,11 @@ SIZE = 100
 # first idea (wrong):
 # pending set() keeps track of pending requests
 # when proposal received, remove proposed txns from pending and add to proposed
-# 	ignore proposal if contains requests already proposed or committed
-# 	move proposed to committed
+#   ignore proposal if contains requests already proposed or committed
+#   move proposed to committed
 # when receive request, ignore if already in pending or proposed. reply if in committed. else add to pending
 # i'm pretty sure we could use the same dictionary for proposed and committed but it would be less efficient
-# 	trade off between quickly searching for round vs searching for previously committed block
+#   trade off between quickly searching for round vs searching for previously committed block
 
 # second idea:
 # diem mempool implementation in rust: "Mempool doesn't keep track of transactions sent to consensus. On each get_block request (to pull a block of transaction from mempool), consensus sends a set of transactions that were pulled from mempool, but not committed. This allows the mempool to stay agnostic about different consensus proposal branches."
@@ -19,40 +19,40 @@ SIZE = 100
 # don't remove from pending until we have committed or rejected block
 
 def payload_to_txns(payload):
-	return {tuple(txn.split(',')) for txn in payload.split('\n')}
+    return {tuple(txn.split(',')) for txn in payload.split('\n')}
 
 def check_transaction(txn, client):
-	if txn in committed:
-		return committed[txn]
-	pending.add(txn)
-	return False
+    if txn in committed:
+        return committed[txn]
+    pending.add(txn)
+    return False
 
 # transactions payload shall be string
 def get_transactions(exclude_payloads):
-	# deserialize
-	exclude_txns = set()
-	for payload in exclude_payloads:
-		exclude_txns.update(payload_to_txns(payload))
-	payload = [','.join(txn) for txn in pending if txn not in exclude_txns]
-	return '\n'.join(payload)
+    # deserialize
+    exclude_txns = set()
+    for payload in exclude_payloads:
+        exclude_txns.update(payload_to_txns(payload))
+    payload = [','.join(txn) for txn in pending if txn not in exclude_txns]
+    return '\n'.join(payload)
 
 def commit_transactions(payload, commit_state_id, clients):
-	txns = payload_to_txns(payload)
-	for txn in txns:
-		pending.discard(txn)
-		committed[txn] = commit_state_id
-		command, author, uuid = txn
-		client = [c for c in clients if c.to_str() == author]
-		if not len(client):
-			output('unrecognized client in txn (this should never happen)')
-		client = client[0]
-		# TODO okay to use send here?
-		send(('committed', txn, commit_state_id), to=client)
-		while len(committed) > SIZE:
-			committed.popitem(False)
+    txns = payload_to_txns(payload)
+    for txn in txns:
+        pending.discard(txn)
+        committed[txn] = commit_state_id
+        command, author, uuid = txn
+        client = [c for c in clients if c.to_str() == author]
+        if not len(client):
+            output('unrecognized client in txn (this should never happen)')
+        client = client[0]
+        # TODO okay to use send here?
+        send(('committed', txn, commit_state_id), to=client)
+        while len(committed) > SIZE:
+            committed.popitem(False)
 
 # actually i don't think we need this...
 def reject_transactions(payload):
-	txns = payload_to_txns(payload)
-	for txn in txns:
-		pending.discard(txn)
+    txns = payload_to_txns(payload)
+    for txn in txns:
+        pending.discard(txn)
