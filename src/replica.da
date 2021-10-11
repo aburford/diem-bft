@@ -32,6 +32,7 @@ class Replica(process):
         pacemaker.exclude_size = num_faulty
         blocktree.u = to_str()
         blocktree.f = num_faulty
+        pacemaker.f = num_faulty
 
         random.seed(seed)
     
@@ -82,11 +83,12 @@ class Replica(process):
     # │ LeaderElection.update_leaders(qc)
     # └ Pacemaker.advance_round(qc.vote_info.round) 
     def process_certificate_qc(qc):
-        committed_payload, commit_state_id = blocktree.process_qc(qc)
-        if committed_payload != None:
-            mempool.commit_transactions(committed_payload, commit_state_id, clients)
-        leaderelection.update_leaders(qc)
-        pacemaker.advance_round_qc(qc.vote_info.round)
+        if qc != None:
+            committed_payload, commit_state_id = blocktree.process_qc(qc)
+            if committed_payload != None:
+                mempool.commit_transactions(committed_payload, commit_state_id, clients)
+            leaderelection.update_leaders(qc)
+            pacemaker.advance_round_qc(qc.vote_info.round)
     
     # Procedure process_proposal_msg(P)
     # │ process_certificate_qc(P.block.qc)
