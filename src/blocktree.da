@@ -118,7 +118,10 @@ class TimeoutInfo:
         self.round = round
         self.high_qc = high_qc
         self.sender = u 
-        self.signature = safety.sign_u(round,high_qc.round)
+        if high_qc == None:
+            self.signature = safety.sign_u(round)
+        else:
+            self.signature = safety.sign_u(round, high_qc.round)
         
 # TC
 # │ round; // All timeout messages that form TC have the same round
@@ -174,7 +177,8 @@ def process_qc(qc):
     global high_commit_qc
     global high_qc
 
-    if qc.ledger_commit_info.commit_state_id != None:
+    if qc != None and \
+            qc.ledger_commit_info.commit_state_id != None:
         ledger.commit(qc.vote_info.parent_id)
         pending_block_tree.prune(qc.vote_info.parent_id)
         high_commit_qc = max_qc(qc, high_commit_qc)
