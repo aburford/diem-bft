@@ -32,15 +32,18 @@ def elect_reputation_leader(qc):
     i = 0
     while i < window_size or len(last_authors) < exclude_size:
         if i < window_size:
-            active_validators = active_validators.union(set(current_qc.signatures.keys()))
+            active_validators = active_validators.union(set([
+            validator for (validator, _) in current_qc.signatures
+        ]))
         # If the block history isn't long enough, do round robin
         if current_qc.vote_info.parent_round < 0:
             return get_leader(pacemaker.current_round)
         current_block = ledger.committed_block(current_qc.vote_info.parent_id)
-        block_author = current_block.author
-        # |current qc.signatures.signers()| ≥ 2f + 1
-        if len(last_authors) < exclude_size:
-            last_authors = last_authors.add(block_author)
+        if current_block != None:
+            block_author = current_block.author
+            # |current qc.signatures.signers()| ≥ 2f + 1
+            if len(last_authors) < exclude_size:
+                last_authors = last_authors.add(block_author)
         current_qc = current_block.qc
         i = i + 1
     active_validators = active_validators.difference(last_authors) # contains at least 1 validator

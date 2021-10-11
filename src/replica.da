@@ -105,11 +105,8 @@ class Replica(process):
     # │ if vote_msg ≠ ⊥ then
     # └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
     def process_proposal_msg(P, sender):
-        if P.block.qc != None:
-            process_certificate_qc(P.block.qc)
-        # TODO: double check this
-        if P.high_commit_qc != None:
-            process_certificate_qc(P.high_commit_qc)
+        process_certificate_qc(P.block.qc)
+        process_certificate_qc(P.high_commit_qc)
         pacemaker.advance_round_tc(P.last_round_tc)
         current_round = pacemaker.current_round
         leader = leaderelection.get_leader(current_round)

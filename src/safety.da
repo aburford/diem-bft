@@ -5,6 +5,7 @@ import blocktree
 from nacl.signing import SigningKey
 import replica
 import pickle
+
 #TODO:generate signatures, and verify them
 # Any valid vote is thus prepared and signed by the Safety module,which has the private keys
 
@@ -13,7 +14,7 @@ u = None # a str representing replica id
 private_key = None
 # Own private key
 public_keys = {} # Public keys of all validators, a dictionary.
-highest_vote_round = 0 # initially 0
+highest_vote_round = -1 # initially 0
 highest_qc_round = -2
 # ----- private functions---------
 # Procedure increase highest vote round(round)
@@ -26,6 +27,7 @@ def __increase_highest_vote_round(round):
 # Procedure update highest qc round(qc round)
 # └highest qc round ← max{qc round, highest qc round}
 def __update_highest_qc_round(qc_round):
+    global highest_qc_round
     highest_qc_round = max(qc_round, highest_qc_round)
 
 # Function consecutive(block round, round)
@@ -65,34 +67,26 @@ def __safe_to_timeout(round, qc_round, tc):
 # | else
 # └return ⊥
 def __commit_state_id_candidate(block_round, qc):
-    if __consecutive(block_round, qc.vote_info.round):
-        return ledger.pending_state(qc.id)
-    else:
-        return None
+    if qc != None:
+        if __consecutive(block_round, qc.vote_info.round):
+            return ledger.pending_state(qc.vote_info.id)
+    return None
 
 # TODO can this block be created by other satefy modules ??
-def __valid_signatures(block_or_qc, last_tc):
-    if block_or_qc == None:
-        return True
-    try:
-        public_key = public_keys[u]
-        qc = None
-        if isinstance(block_or_qc,blocktree.Block):
-            block = block_or_qc
-            public_key.verify(block.qc.author_signature)
-            qc = block.qc
-        else:
-            qc = block_or_qc
-
-        for signature in qc.signatures:
-            public_key.verify(signature)
-
-        for signature in last_tc.tmo_signatures:
-            public_key.verify(signature)
-
-        return True
-    except:
-        return False 
+def __valid_signatures(qc, last_tc):
+    if qc != None:
+        try:
+            for (author, signature) in qc.signatures:
+                public_keys[author].verify(signature)
+        except:
+            return False
+    if last_tc != None:
+        try:
+            for (author, signature) in last_tc.tmo_signatures:
+                public_keys[author].verify(signature)
+        except:
+            return False
+    return True
         
 #------------- public functions ------------------
 
@@ -119,23 +113,26 @@ def make_vote(b, last_tc):
         qc_round = -1
     else:
         qc_round = b.qc.vote_info.round
-    if __valid_signatures(b, last_tc) and __safe_to_vote(b.round, qc_round, last_tc):
+    if __valid_signatures(b.qc, last_tc) and __safe_to_vote(b.round, qc_round, last_tc):
         __update_highest_qc_round(qc_round) # Protect qc round
         __increase_highest_vote_round(b.round) # Don’t vote again in this (or lower) round
+        if b.qc == None:
+            parent_id = None
+        else:
+            parent_id = b.qc.vote_info.id
         # VoteInfo carries the potential QC info with ids and rounds of the parent QC
         vote_info = blocktree.VoteInfo(
-                        id = b.id,
-                        round = b.round,
-                        parent_id = b.qc.vote_info.id,
-                        parent_round= qc_round, 
-                        exec_state_id = ledger.pending_state(b.id)
-                    )
-        ledger_commit_info  = blocktree.LedgerCommitInfo(
-                            commit_state_id = __commit_state_id_candidate(b.round, b.qc),
-                            vote_info_hash = nacl.hash.sha256(vote_info)) # sha256 hash here
-
+            block_id = b.id,
+            vote_round = b.round,
+            parent_id = parent_id,
+            parent_round = qc_round,
+            exec_state_id = ledger.pending_state(b.id)
+        )
+        ledger_commit_info = blocktree.LedgerCommitInfo(
+            commit_state_id = __commit_state_id_candidate(b.round, b.qc),
+            vote_info = vote_info
+        )
         vote_msg = blocktree.VoteMsg(vote_info, ledger_commit_info, blocktree.high_commit_qc)
-
         return vote_msg
     return None
 

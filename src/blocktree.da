@@ -1,8 +1,12 @@
-import nacl.hash
 import ledger
+import nacl.hash
+import pickle
 import safety
 
 HASHER = nacl.hash.sha256
+def hash(*payloads):
+    payloads_bytes = pickle.dumps(payloads)
+    return HASHER(payloads_bytes) # sign the input in bytes with private key.
 
 class PendingBlock:
     def __init__(self, block):
@@ -18,17 +22,17 @@ class PendingBlockTree:
         self.id_to_block[block.id] = pending_block
         if block.qc != None and \
                 block.qc.vote_info.id in self.id_to_block:
-            self.id_to_block[block.qc.vote_info.id].children.add(pending_block)
+            self.id_to_block[block.qc.vote_info.id].children.append(pending_block)
 
     def dfs(self, new_tree, pending_block):
-        new_tree[block.id] = pending_block
+        new_tree[pending_block.block.id] = pending_block
         for child in pending_block.children:
-            dfs(new_tree, child)
+            self.dfs(new_tree, child)
 
     def prune(self, block_id):
-        if block_id in id_to_block:
+        if block_id in self.id_to_block:
             new_tree = {}
-            self.dfs(new_tree, id_to_block[block_id])
+            self.dfs(new_tree, self.id_to_block[block_id])
             self.id_to_block = new_tree
 
 u = None
@@ -58,9 +62,15 @@ class VoteInfo:
 # │ commit_state_id; // ⊥ if no commit happens when this vote is aggregated to QC
 # └ vote_info_hash; // Hash of VoteMsg.vote info
 class LedgerCommitInfo:
-    def __init__(self, commit_state_id, vote_info_hash):
+    def __init__(self, commit_state_id, vote_info):
         self.commit_state_id = commit_state_id
-        self.vote_info_hash = vote_info_hash
+        self.vote_info_hash = hash(
+            vote_info.id,
+            vote_info.round,
+            vote_info.parent_id,
+            vote_info.parent_round,
+            vote_info.exec_state_id,
+        )
 
 # VoteMsg
 # │ vote_info; // A VoteInfo record
@@ -74,7 +84,7 @@ class VoteMsg:
         self.ledger_commit_info = ledger_commit_info
         self.high_commit_qc = high_commit_qc
         self.sender = u
-        self.signature = safety.sign_u(ledget_commit_info)
+        self.signature = safety.sign_u(ledger_commit_info)
 
 # // QC is a VoteMsg with multiple signatures
 # QC
@@ -104,8 +114,7 @@ class Block:
         self.payload = payload
         self.qc = qc
         # TODO: add author, qc.vote_info.id, and qc.signatures
-        self.id = HASHER(self.round.to_bytes(8, 'big') + \
-            self.payload.encode('utf-8'))
+        self.id = hash(round, payload)
 
 
 # TimeoutInfo
@@ -184,7 +193,11 @@ def process_qc(qc):
         high_commit_qc = max_qc(qc, high_commit_qc)
         high_qc = max_qc(qc, high_qc)
         block = ledger.committed_block(qc.vote_info.parent_id)
-        return block.payload, qc.ledger_commit_info.commit_state_id
+        if block == None:
+            payload = None
+        else:
+            payload = block.payload
+        return payload, qc.ledger_commit_info.commit_state_id
     high_qc = max_qc(qc, high_qc)
     return (None, None)
 
@@ -211,14 +224,17 @@ def execute_and_insert(b):
 # └ return ⊥
 def process_vote(v):
     process_qc(v.high_commit_qc)
-    vote_idx = HASHER(v.ledger_commit_info)
+    vote_idx = hash(
+        v.ledger_commit_info.commit_state_id,
+        v.ledger_commit_info.vote_info_hash
+    )
     if not(vote_idx in pending_votes):
         pending_votes[vote_idx] = set()
-    pending_votes[vote_idx].add(v.signature)
+    pending_votes[vote_idx].add((v.sender, v.signature))
     if len(pending_votes[vote_idx]) == 2 * f + 1:
         return QC(
             v.vote_info,
-            v.state_id,
+            v.ledger_commit_info,
             pending_votes[vote_idx]
         )
     else:
