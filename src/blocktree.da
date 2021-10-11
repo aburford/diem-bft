@@ -114,7 +114,7 @@ class Block:
         self.payload = payload
         self.qc = qc
         # TODO: add author, qc.vote_info.id, and qc.signatures
-        self.id = hash(round, payload)
+        self.id = hash(block_round, payload)
 
 
 # TimeoutInfo
