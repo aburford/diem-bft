@@ -45,13 +45,15 @@ class Replica(process):
     def run():
         output('started running')
         process_new_round_event(None)
+        pacemaker.start_timer(0)
         while not received(('done',)):
             round_done = False
-            duration = pacemaker.get_round_timer(pacemaker.current_round)
+            (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
             if await(round_done):
                 pass
             elif timeout(duration):
-                pacemaker.local_timeout_round(broadcast)
+                if not(paused):
+                    pacemaker.local_timeout_round(broadcast)
         output('finished running')
     
     # Procedure start event processing(M)
@@ -124,7 +126,7 @@ class Replica(process):
         process_certificate_qc(M.tmo_info.high_qc)
         process_certificate_qc(M.high_commit_qc)
         pacemaker.advance_round_tc(M.last_round_tc)
-        tc = pacemaker.process_remote_timeout(M)
+        tc = pacemaker.process_remote_timeout(broadcast, M)
         if tc:
             pacemaker.advance_round_tc(tc)
             process_new_round_event(tc)

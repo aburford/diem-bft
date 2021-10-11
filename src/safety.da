@@ -14,12 +14,13 @@ private_key = None
 # Own private key
 public_keys = {} # Public keys of all validators, a dictionary.
 highest_vote_round = 0 # initially 0
-highest_qc_round = 0
+highest_qc_round = -2
 # ----- private functions---------
 # Procedure increase highest vote round(round)
 # | commit not to vote in rounds lower than round
 # └ highest vote round ← max{round, highest vote round}
 def __increase_highest_vote_round(round):
+    global highest_vote_round
     highest_vote_round = max(round, highest_vote_round)
 
 # Procedure update highest qc round(qc round)
@@ -53,7 +54,10 @@ def __safe_to_vote(block_round, qc_round, tc):
 def __safe_to_timeout(round, qc_round, tc):
     if qc_round < highest_qc_round or round <= max(highest_vote_round - 1, qc_round):
         return False
-    return __consecutive(round, qc_round) or __consecutive(round, tc.round)
+    return __consecutive(round, qc_round) or __consecutive(
+        round,
+        -1 if tc == None else tc.round
+    )
 
 # Function commit state id candidate(block round, qc)
 # | if consecutive(block round, qc.vote info.round) then
@@ -68,6 +72,8 @@ def __commit_state_id_candidate(block_round, qc):
 
 # TODO can this block be created by other satefy modules ??
 def __valid_signatures(block_or_qc, last_tc):
+    if block_or_qc == None:
+        return True
     try:
         public_key = public_keys[u]
         qc = None
@@ -141,9 +147,11 @@ def make_vote(b, last_tc):
 # └ return ⊥
 def make_timeout(round, high_qc, last_tc):
     if high_qc == None:
-        return blocktree.TimeoutInfo(round, high_qc)
+        qc_round = -1
+    else:
+        qc_round = high_qc.round
     if __valid_signatures(high_qc, last_tc) and __safe_to_timeout(round, qc_round, last_tc):
         __increase_highest_vote_round(round) # Stop voting for round
-        timeout_info = replica.TimeoutInfo(round, high_qc)
+        timeout_info = blocktree.TimeoutInfo(round, high_qc)
         return timeout_info
     return None
