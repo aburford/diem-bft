@@ -9,16 +9,24 @@ committed_queue = []
 committed_blocks = {}
 pending_block_to_state = {}
 
-if not(os.path.isdir("ledger")):
-    os.mkdir("ledger")
-# TODO: get LEDGER_ID filename from configuration
-ledger_file = open("ledger/LEDGER_ID", "w+")
+window_size = 5
+
+ledger_file = None
+
+def make_ledger(filename):
+    global ledger_file
+
+    if not(os.path.isdir("ledger")):
+        os.mkdir("ledger")
+    # TODO: get LEDGER_ID filename from configuration
+    ledger_file = open("ledger/" + filename, "w+")
 
 class LedgerState:
     def __init__(self, prev_block_id, block_id, txns):
         self.prev_block_id = prev_block_id
         self.block_id = block_id
         self.txns = txns
+        self.commands = "\n".join([txn[0] for txn in txns])
 
         self.children = []
         if prev_block_id in pending_block_to_state:
@@ -31,12 +39,16 @@ class LedgerState:
             self.parent_state_id = b'' 
 
         self.id = HASHER(
-            self.parent_state_id + txns.encode('utf-8')
+            self.parent_state_id + self.commands.encode('utf-8')
         )
 
 # speculate(prev_block_id, block_id, txns) // apply txns speculatively
 def speculate(prev_block_id, block_id, txns):
-    state = LedgerState(prev_block_id, block_id, txns)
+    state = LedgerState(
+        prev_block_id,
+        block_id,
+        txns
+    )
     state_tree[state.id] = state
     pending_block_to_state[block_id] = state
     
@@ -58,12 +70,16 @@ def commit_prefix(state):
         # If the parent is not committed, commit it first
         if state.parent_state_id in state_tree:
             commit_prefix(state_tree[state.parent_state_id])
-        ledger_file.write(state.txns)
+        ledger_file.write(state.commands)
         ledger_file.flush()
         os.fsync(ledger_file.fileno())
         # TODO: add the committed block to committed_blocks
+        pending_block = pending_block_tree.id_to_block.get(state.block_id)
+        committed_blocks[state.block_id] = pending_block.block
         # TODO: pop the front of committed_queue when it has more than
-        # max(window_size, 2 * |validators|) blocks
+        if len(committed_queue) > max(window_size, 2 * validators):
+            committed_blocks.pop(committed_queue.pop())
+        committed_queue.insert(0, state.block_id)
 
 def dfs(new_pending, state):
     for child in state.children:

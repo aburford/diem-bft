@@ -13,6 +13,8 @@ class Replica(process):
     def setup(
         replica_ids,
         client_ids,
+        replicas,
+        clients,
         transmission_delay_bound,
         public_keys,
         private_key,
@@ -21,20 +23,32 @@ class Replica(process):
         server_ids,
         num_faulty
     ):
+        self.id_to_server = {server_ids[server]: server for server in server_ids.keys()}
+
         safety.public_keys = public_keys
         safety.private_key = private_key
         safety.u = to_str()
+        ledger.make_ledger(to_str())
+        ledger.validators = len(replica_ids)
 
         recent_proposals = deque()
         leaderelection.validators = sorted(list(replica_ids))
+        leaderelection.exclude_size = num_faulty
         pacemaker.transmission_delay_bound = transmission_delay_bound
         pacemaker.f = num_faulty
-        pacemaker.exclude_size = num_faulty
         blocktree.u = to_str()
         blocktree.f = num_faulty
         pacemaker.f = num_faulty
 
         random.seed(seed)
+
+    def multicast(msg, to):
+        if isinstance(to, set):
+            for dst in to:
+                multicast(msg, to=dst)
+            return
+        to = self.id_to_server[to]
+        send(msg, to=to)
     
     # __str__ doesn't seem to work with DistAlgo...
     def to_str():
@@ -47,9 +61,8 @@ class Replica(process):
         process_new_round_event(None)
         pacemaker.start_timer(0)
         while not received(('done',)):
-            round_done = False
             (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
-            if await(round_done):
+            if await received(('done',)):
                 pass
             elif timeout(duration):
                 if not(paused):
@@ -61,7 +74,6 @@ class Replica(process):
     # │ if M is a vote message then process_vote_msg(M)
     # └ if M is a timeout message then process_timeout_msg(M)
     def receive(msg=M, from_=sender):
-        sender = self.server_ids.get(sender)
         msg_type = M[0]
         output('received message %s from: %s' % (M, sender))
         if msg_type == 'proposal':
@@ -70,7 +82,7 @@ class Replica(process):
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
             process_timeout_msg(M[1], sender)
-        elif msg_type == 'request' and sender in client_ids:
+        elif msg_type == 'request' and sender in clients:
             # process request from client
             txn = M[1]
             # check if duplicate (otherwise add to mempool.pending)
@@ -78,7 +90,7 @@ class Replica(process):
             if commit_state_id:
                 # duplicate request, reply to client
                 output('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
-                send(('committed', txn, commit_state_id), to=sender)
+                multicast(('committed', txn, commit_state_id), to=sender)
     
     # Procedure process_certificate_qc(qc)
     # │ Block-Tree.process_qc(qc)
@@ -88,7 +100,12 @@ class Replica(process):
         if qc != None:
             committed_payload, commit_state_id = blocktree.process_qc(qc)
             if committed_payload != None:
-                mempool.commit_transactions(committed_payload, commit_state_id, clients)
+                mempool.commit_transactions(
+                    committed_payload,
+                    commit_state_id,
+                    client_ids,
+                    multicast
+                )
             leaderelection.update_leaders(qc)
             pacemaker.advance_round_qc(qc.vote_info.round)
     
@@ -111,13 +128,13 @@ class Replica(process):
         current_round = pacemaker.current_round
         leader = leaderelection.get_leader(current_round)
         if P.block.round != current_round or \
-            sender != leader or \
+            self.server_ids.get(sender) != leader or \
             P.block.author != leader:
             return
         blocktree.execute_and_insert(P.block)
         vote_msg = safety.make_vote(P.block, P.last_round_tc)
         if vote_msg:
-            send(('vote', vote_msg), to=leaderelection.get_leader(current_round + 1))
+            multicast(('vote', vote_msg), to=leaderelection.get_leader(current_round + 1))
 
     def process_timeout_msg(M, sender):
         process_certificate_qc(M.tmo_info.high_qc)
@@ -151,4 +168,4 @@ class Replica(process):
             broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
 
     def broadcast(msg):
-        send(msg, to=replica_ids)
+        multicast(msg, to=replica_ids)

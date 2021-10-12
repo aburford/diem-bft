@@ -1,3 +1,4 @@
+import pickle
 from uuid import uuid4
 from time import sleep
 import random
@@ -5,64 +6,64 @@ import safety
 from config import *
 
 class Client(process):
-	def setup(replicas:set, runner, workload, public_keys, private_key, id, seed):
-		output('configured with %s workload for %d requests' % (workload.type.name, workload.count))
-		safety.public_keys = public_keys
-		safety.private_key = private_key
-		random.seed(seed)
-	
-	# __str__ doesn't seem to work with DistAlgo...
-	def to_str():
-		return 'client' + str(id)
-	
-	def send_request(i):
-		# TODO include signature
-		uuid = '%xu' % random.getrandbits(16*8)
-		command = to_str() + str(i)
-		author = to_str()
-		txn = (command, author, uuid)
-		send(('request', txn), to=replicas)
-		return txn
-	
-	def run():
-		# TODO:
-		# 1. client requests should be signed
-		#		replicas verify signatures
-		# 2. include unique id to avoid request duplication
-		# 3. client should be able to determine when a submitted request
-		#		has been submitted to the ledger
-		output('started running')
-		if workload.type == WorkloadType.retransmit:
-			# send requests
-			duration = 1
-			for i in range(workload.count):
-				committed = False
-				while not committed:
-					txn = send_request(i)
-					if await(some(received(('committed', _txn, commit_state_id)))):
-						# TODO check commit_state_id signature
-						committed = True
-					elif timeout(duration):
-						output('timed out requesting commit for txn:', txn)
-						duration *= 2
-				duration /= 2
-		elif workload.type == WorkloadType.flood:
-			for i in range(workload.count):
-				send_request(i)
-			if await(each(sent(('request', txn)), has=some(received(('committed', _txn))))):
-				output('all txns committed')
-			elif timeout(workload.timeout):
-				output('failed to commit all transactions after %d seconds' % workload.timeout)
-		elif workload.type == WorkloadType.timed:
-			assert workload.count == len(workload.delays) - 1
-			workload.delays.append(0)
-			for i in range(workload.count):
-				send_request(i)
-				sleep(workload.delays[i])
-			if await(each(sent(('request', txn)), has=some(received(('committed', _txn))))):
-				output('all txns committed')
-			elif timeout(workload.timeout):
-				output('failed to commit all transactions after %d seconds' % workload.timeout)
-		output('done sending commands')
-		send(('done',), to=runner)
-	
+    def setup(replicas:set, runner, workload, public_keys, private_key, id, seed):
+        output('configured with %s workload for %d requests' % (workload.type.name, workload.count))
+        safety.public_keys = public_keys
+        safety.private_key = private_key
+        random.seed(seed)
+    
+    # __str__ doesn't seem to work with DistAlgo...
+    def to_str():
+        return 'client' + str(id)
+    
+    def send_request(i):
+        # TODO include signature
+        uuid = '%xu' % random.getrandbits(16*8)
+        command = to_str() + str(i)
+        author = to_str()
+        txn = (command, author, uuid)
+        send(('request', txn), to=replicas)
+        return txn
+    
+    def run():
+        # TODO:
+        # 1. client requests should be signed
+        #       replicas verify signatures
+        # 2. include unique id to avoid request duplication
+        # 3. client should be able to determine when a submitted request
+        #       has been submitted to the ledger
+        output('started running')
+        if workload.type == WorkloadType.retransmit:
+            # send requests
+            duration = 1
+            for i in range(workload.count):
+                committed = False
+                while not committed:
+                    txn = send_request(i)
+                    if await(some(received(('committed', _txn, commit_state_id)))):
+                        # TODO check commit_state_id signature
+                        committed = True
+                    elif timeout(duration):
+                        output('timed out requesting commit for txn:', txn)
+                        duration *= 2
+                duration /= 2
+        elif workload.type == WorkloadType.flood:
+            for i in range(workload.count):
+                send_request(i)
+            if await(each(sent(('request', txn)), has=some(received(('committed', _txn))))):
+                output('all txns committed')
+            elif timeout(workload.timeout):
+                output('failed to commit all transactions after %d seconds' % workload.timeout)
+        elif workload.type == WorkloadType.timed:
+            assert workload.count == len(workload.delays) - 1
+            workload.delays.append(0)
+            for i in range(workload.count):
+                send_request(i)
+                sleep(workload.delays[i])
+            if await(each(sent(('request', txn)), has=some(received(('committed', _txn))))):
+                output('all txns committed')
+            elif timeout(workload.timeout):
+                output('failed to commit all transactions after %d seconds' % workload.timeout)
+        output('done sending commands')
+        send(('done',), to=runner)
+    

@@ -59,9 +59,10 @@ class Run(process):
             setup(
                 replica, (
                     failure_config,
-                    replicas,
                     replica_ids,
                     client_ids,
+                    replicas,
+                    clients,
                     transmission_delay_bound,
                     public_keys,
                     private_keys['replica' + str(i)],

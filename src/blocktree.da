@@ -15,6 +15,7 @@ class PendingBlock:
 
 class PendingBlockTree:
     def __init__(self):
+        ledger.pending_block_tree = self
         self.id_to_block = {}
 
     def add(self, block):
@@ -130,7 +131,7 @@ class TimeoutInfo:
         if high_qc == None:
             self.signature = safety.sign_u(round)
         else:
-            self.signature = safety.sign_u(round, high_qc.round)
+            self.signature = safety.sign_u(round, high_qc.vote_info.round)
         
 # TC
 # │ round; // All timeout messages that form TC have the same round

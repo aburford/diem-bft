@@ -10,9 +10,10 @@ from time import sleep
 class ReplicaFI(process, Replica):
     def setup(
         failure_config,
-        peers:set,
         replica_ids,
         client_ids,
+        replicas,
+        clients,
         transmission_delay_bound,
         public_keys,
         private_key,
@@ -24,6 +25,8 @@ class ReplicaFI(process, Replica):
         super().setup(
             replica_ids,
             client_ids,
+            replicas,
+            clients,
             transmission_delay_bound,
             public_keys,
             private_key,
@@ -33,14 +36,8 @@ class ReplicaFI(process, Replica):
             num_faulty
         )
         random.seed(failure_config.seed)
-        self.id_to_server = {server_ids[server]: server for server in server_ids.keys()}
     
     def send(m, to):
-        if isinstance(to, set):
-            for dst in to:
-                send(m, to=dst)
-            return
-        to = self.id_to_server[to]
         prob_success = 1
         delay = 0
         msg_type = m[0]

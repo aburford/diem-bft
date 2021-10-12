@@ -33,21 +33,20 @@ def get_transactions(exclude_payloads):
     exclude_txns = set()
     for payload in exclude_payloads:
         exclude_txns.update(payload_to_txns(payload))
-    payload = [','.join(txn) for txn in pending if txn not in exclude_txns]
-    return '\n'.join(payload)
+    payload = [txn for txn in pending if txn not in exclude_txns]
+    return payload
 
-def commit_transactions(payload, commit_state_id, clients):
-    txns = payload_to_txns(payload)
+def commit_transactions(txns, commit_state_id, clients, multicast):
     for txn in txns:
         pending.discard(txn)
         committed[txn] = commit_state_id
         command, author, uuid = txn
-        client = [c for c in clients if c.to_str() == author]
+        client = [c for c in clients if c == author]
         if not len(client):
             output('unrecognized client in txn (this should never happen)')
         client = client[0]
         # TODO okay to use send here?
-        send(('committed', txn, commit_state_id), to=client)
+        multicast(('committed', txn, commit_state_id), to=client)
         while len(committed) > SIZE:
             committed.popitem(False)
 

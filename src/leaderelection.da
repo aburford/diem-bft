@@ -23,14 +23,14 @@ reputation_leaders = {} # Map from round numbers to leaders elected due to the r
 # | active validators ← active validators \ last authors // contains at least 1 validator
 # └ return active validators.pick one(seed ← qc.voteinfo.round)
 def elect_reputation_leader(qc):
-    if qc == None:
-        return get_leader(pacemaker.current_round)
-
     active_validators = set() # validators that signed the last window size committed blocks
     last_authors = set() # ordered set of authors of last exclude size committed blocks
     current_qc = qc
     i = 0
     while i < window_size or len(last_authors) < exclude_size:
+        if current_qc == None:
+            return get_leader(pacemaker.current_round)
+
         if i < window_size:
             active_validators = active_validators.union(set([
             validator for (validator, _) in current_qc.signatures
