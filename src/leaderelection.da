@@ -29,30 +29,27 @@ def elect_reputation_leader(qc):
     i = 0
     while i < window_size or len(last_authors) < exclude_size:
         if current_qc == None:
-            return get_leader(pacemaker.current_round)
-
+            break
+        current_block = ledger.committed_block(current_qc.vote_info.parent_id)
+        if current_block == None:
+            break
+        block_author = current_block.author
         if i < window_size:
             active_validators = active_validators.union(set([
             validator for (validator, _) in current_qc.signatures
         ]))
-
-        # If the block history isn't long enough, do round robin
-        if current_qc.vote_info.parent_round < 0:
-            return get_leader(pacemaker.current_round)
-        current_block = ledger.committed_block(current_qc.vote_info.parent_id)
-        if current_block == None:
-            return get_leader(pacemaker.current_round)
-
-        block_author = current_block.author
         # |current qc.signatures.signers()| ≥ 2f + 1
+
         if len(last_authors) < exclude_size:
-            last_authors = last_authors.add(block_author)
+            last_authors.add(block_author)
         current_qc = current_block.qc
         i = i + 1
     active_validators = active_validators.difference(last_authors) # contains at least 1 validator
-    random.seed(qc.vote_info.round)
     # active_validators.pick_one(seed = qc.voteinfo.round)
-    return random.choice(list(active_validators))
+    if qc != None and len(active_validators) > 0:
+        random.seed(qc.vote_info.round)
+        return random.choice(list(active_validators))
+    return None
 
 # Procedure update leaders(qc)
 # | extended round ← qc.vote info.parent round
