@@ -8,6 +8,7 @@ import mempool
 import leaderelection
 import safety
 import random
+import pickle
 
 class Replica(process):
     def setup(
@@ -39,6 +40,7 @@ class Replica(process):
         blocktree.u = to_str()
         blocktree.f = num_faulty
         pacemaker.f = num_faulty
+        mempool.u = to_str()
 
         random.seed(seed)
 
@@ -153,7 +155,7 @@ class Replica(process):
 
     def process_new_round_event(last_tc):
         if to_str() == leaderelection.get_leader(pacemaker.current_round):
-            output('%s is now leader for current round %d' % (self, pacemaker.current_round))
+            output('%s is now leader for current round %d' % (to_str(), pacemaker.current_round))
             # TODO in rust implementation, blockstore has path_from_commit_root method
             # which returns list of uncommitted but proposed transactions from the last committed
             # block to the currently proposed block (i think?)

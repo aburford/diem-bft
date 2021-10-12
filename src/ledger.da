@@ -26,7 +26,7 @@ class LedgerState:
         self.prev_block_id = prev_block_id
         self.block_id = block_id
         self.txns = txns
-        self.commands = "\n".join([txn[0] for txn in txns])
+        self.commands = "".join([txn[0] + "\n" for txn in txns])
 
         self.children = []
         if prev_block_id in pending_block_to_state:

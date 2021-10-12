@@ -18,21 +18,16 @@ SIZE = 100
 # so instead of keeping track of proposed txns ourselves, take that as parameter in get_transactions
 # don't remove from pending until we have committed or rejected block
 
-def payload_to_txns(payload):
-    return {tuple(txn.split(',')) for txn in payload.split('\n')}
-
 def check_transaction(txn, client):
     if txn in committed:
         return committed[txn]
     pending.add(txn)
     return False
 
-# transactions payload shall be string
 def get_transactions(exclude_payloads):
-    # deserialize
     exclude_txns = set()
     for payload in exclude_payloads:
-        exclude_txns.update(payload_to_txns(payload))
+        exclude_txns.update(payload)
     payload = [txn for txn in pending if txn not in exclude_txns]
     return payload
 
@@ -49,9 +44,3 @@ def commit_transactions(txns, commit_state_id, clients, multicast):
         multicast(('committed', txn, commit_state_id), to=client)
         while len(committed) > SIZE:
             committed.popitem(False)
-
-# actually i don't think we need this...
-def reject_transactions(payload):
-    txns = payload_to_txns(payload)
-    for txn in txns:
-        pending.discard(txn)

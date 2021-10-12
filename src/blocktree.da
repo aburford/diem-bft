@@ -259,4 +259,12 @@ def generate_block(txns, current_round):
 # TODO return list of blocks from high_commit_qc (exclusive) to high_qc (inclusive)
 #  (i think...)
 def path_from_commit_root():
-    return []
+    path = []
+    qc = high_qc
+    while qc != None:
+        block = pending_block_tree.id_to_block[qc.vote_info.id].block
+        path.append(block)
+        if qc == high_commit_qc:
+            break
+        qc = block.qc
+    return path
