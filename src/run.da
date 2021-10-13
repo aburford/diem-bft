@@ -96,7 +96,7 @@ def main():
             workloads = [
                 Workload(
                     type = WorkloadType.retransmit,
-                    count = 5,
+                    count = 10,
                     num_clients = 1
                 )
             ],

@@ -1,7 +1,5 @@
 from collections import OrderedDict
-pending = set()
-# map txn to commit_state_id
-committed = OrderedDict()
+requests = OrderedDict()
 SIZE = 100
 
 # first idea (wrong):
@@ -19,28 +17,36 @@ SIZE = 100
 # don't remove from pending until we have committed or rejected block
 
 def check_transaction(txn, client):
-    if txn in committed:
-        return committed[txn]
-    pending.add(txn)
+    uuid = txn[2]
+    # Check whether transaction has already been committed
+    if uuid in requests and requests[uuid][1] != None:
+        # Move it to the front
+        requests.move_to_end(uuid, last=False)
+        return requests[uuid][1]
+    if len(requests) == SIZE:
+        requests.popitem()
+    requests[uuid] = (txn, None)
     return False
 
 def get_transactions(exclude_payloads):
-    exclude_txns = set()
-    for payload in exclude_payloads:
-        exclude_txns.update(payload)
-    payload = [txn for txn in pending if txn not in exclude_txns]
+    exclude_uuids = set()
+    exclude_txns = [txn for payload in exclude_payloads for txn in payload]
+    for (_, _, uuid) in exclude_txns:
+        exclude_uuids.add(uuid)
+    payload = [requests[uuid][0] for uuid in requests
+        if (uuid not in exclude_uuids and requests[uuid][1] == None)
+    ]
     return payload
 
 def commit_transactions(txns, commit_state_id, clients, multicast):
-    for txn in txns:
-        pending.discard(txn)
-        committed[txn] = commit_state_id
-        command, author, uuid = txn
+    for (command, author, uuid) in txns:
+        requests.move_to_end(uuid, last=False)
+        requests[uuid] = ((command, author, uuid), commit_state_id)
         client = [c for c in clients if c == author]
         if not len(client):
             output('unrecognized client in txn (this should never happen)')
         client = client[0]
         # TODO okay to use send here?
-        multicast(('committed', txn, commit_state_id), to=client)
-        while len(committed) > SIZE:
-            committed.popitem(False)
+        multicast(('committed', (command, author, uuid), commit_state_id), to=client)
+        if len(requests) == SIZE:
+            committed.popitem()

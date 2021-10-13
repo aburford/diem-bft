@@ -16,9 +16,8 @@ class Client(process):
     def to_str():
         return 'client' + str(id)
     
-    def send_request(i):
+    def send_request(i, uuid):
         # TODO include signature
-        uuid = '%xu' % random.getrandbits(16*8)
         command = to_str() + str(i)
         author = to_str()
         txn = (command, author, uuid)
@@ -38,8 +37,9 @@ class Client(process):
             duration = 1
             for i in range(workload.count):
                 committed = False
+                uuid = '%xu' % random.getrandbits(16*8)
                 while not committed:
-                    txn = send_request(i)
+                    txn = send_request(i, uuid)
                     if await(some(received(('committed', _txn, commit_state_id)))):
                         # TODO check commit_state_id signature
                         committed = True
