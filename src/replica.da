@@ -70,7 +70,8 @@ class Replica(process):
             for dst in to:
                 multicast(msg, to=dst)
             return
-        to = self.id_to_server[to]
+        if isinstance(to, str):
+            to = self.id_to_server[to]
         send(msg, to=to)
         logging.info(f"[send '{msg[0]}' message] to [{to}] \n\
             content={msg}")

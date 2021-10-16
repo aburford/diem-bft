@@ -15,7 +15,7 @@ process_certificate_qc = None
 handle_msg = None
 
 
-# return True if we need to sync up before processing the next proposal/timeout
+# return True if we need to sync up before processing this proposal
 def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):
     if syncing:
         msg_queue.append((msg, src))
@@ -28,6 +28,11 @@ def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):
         send_sync_request()
         return True
     return False
+
+# shouldn't actually be necessary to implement because we can timeout and sync up with the next leader's proposal
+def need_vote_sync(remote_high_commit_qc, vote_info, msg, src):
+    if not blocktree.pending_block_tree.contains(vote_info.id):
+        return True
 
 def process_sync_request(sync_request, src):
     chain = ledger.get_commit_chain(sync_request.high_commit_qc)

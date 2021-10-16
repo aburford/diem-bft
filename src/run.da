@@ -28,7 +28,6 @@ class Run(process):
         logging.basicConfig(filename = f"log/{self.testcase_name}_run.log",level=logging.INFO,
             format='%(asctime)s:%(message)s',filemode='w')
         logging.info(f'using random seed: {self.seed}')
-        print(logging)
 
     def run():
         num_clients = sum([wkld.num_clients for wkld in self.workloads])
