@@ -80,7 +80,8 @@ class Run(process):
                 public_keys,
                 private_keys['client' + str(i)],
                 i,
-                random.random()
+                random.random(),
+                num_faulty
             ))
         start(replicas + clients)
         await(each(c in clients, has=received(('done',), from_=c)))

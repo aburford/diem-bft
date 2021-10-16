@@ -6,7 +6,7 @@ import safety
 from config import *
 
 class Client(process):
-    def setup(replicas:set, runner, workload, public_keys, private_key, id, seed):
+    def setup(replicas:set, runner, workload, public_keys, private_key, id, seed, num_faulty):
         output('configured with %s workload for %d requests' % (workload.type.name, workload.count))
         safety.public_keys = public_keys
         safety.private_key = private_key
@@ -40,7 +40,7 @@ class Client(process):
                 uuid = '%xu' % random.getrandbits(16*8)
                 while not committed:
                     txn = send_request(i, uuid)
-                    if await(some(received(('committed', _txn, commit_state_id)))):
+                    if await(len(setof(sender, received(('committed', _txn, commit_state_id), from_=sender))) > num_faulty):
                         # TODO check commit_state_id signature
                         committed = True
                     elif timeout(duration):
@@ -50,7 +50,7 @@ class Client(process):
         elif workload.type == WorkloadType.flood:
             for i in range(workload.count):
                 send_request(i)
-            if await(each(sent(('request', txn)), has=some(received(('committed', _txn))))):
+            if await(each(sent(('request', txn)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
                 output('all txns committed')
             elif timeout(workload.timeout):
                 output('failed to commit all transactions after %d seconds' % workload.timeout)
@@ -60,10 +60,9 @@ class Client(process):
             for i in range(workload.count):
                 send_request(i)
                 sleep(workload.delays[i])
-            if await(each(sent(('request', txn)), has=some(received(('committed', _txn))))):
+            if await(each(sent(('request', txn)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
                 output('all txns committed')
             elif timeout(workload.timeout):
                 output('failed to commit all transactions after %d seconds' % workload.timeout)
         output('done sending commands')
         send(('done',), to=runner)
-    
