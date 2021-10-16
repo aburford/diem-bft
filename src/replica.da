@@ -9,6 +9,7 @@ import leaderelection
 import safety
 import random
 import pickle
+import logging
 
 class Replica(process):
     def setup(
@@ -22,7 +23,9 @@ class Replica(process):
         id,
         seed,
         server_ids,
-        num_faulty
+        num_faulty,
+        testcase_name,
+        isFI = False
     ):
         self.id_to_server = {server_ids[server]: server for server in server_ids.keys()}
 
@@ -41,9 +44,23 @@ class Replica(process):
         blocktree.f = num_faulty
         pacemaker.f = num_faulty
         mempool.u = to_str()
-
         random.seed(seed)
 
+    
+        if not isFI:
+            logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
+                format= '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w') 
+            pacemaker.logging = logging
+            ledger.logging = logging
+            safety.logging = logging
+
+            logging.info(f"[Initial settings for current replica]: \n\
+            public keys are: {public_keys}\n\
+            private key is: {private_key}\n\
+            random seed is: {seed}\n\
+            total replicas are: {replicas}\n\
+            transmission delay bound is: {transmission_delay_bound}")
+        
     def multicast(msg, to):
         if isinstance(to, set):
             for dst in to:
@@ -51,6 +68,8 @@ class Replica(process):
             return
         to = self.id_to_server[to]
         send(msg, to=to)
+        logging.info(f"[send '{msg[0]}' message] to [{to}] \n\
+            content={msg}")
     
     # __str__ doesn't seem to work with DistAlgo...
     def to_str():
@@ -60,6 +79,7 @@ class Replica(process):
     # if M is a local timeout then Pacemaker.local_timeout_round()
     def run():
         output('started running')
+        logging.info("[started running]")
         process_new_round_event(None)
         pacemaker.start_timer(0)
         while True:
@@ -67,9 +87,11 @@ class Replica(process):
             if await received(('done',)):
                 break
             elif timeout(duration):
+                (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
                 if not(paused):
                     pacemaker.local_timeout_round(broadcast)
         output('finished running')
+        logging.info("[finished running]")
     
     # Procedure start event processing(M)
     # │ if M is a proposal message then process_proposal_msg(M)
@@ -78,6 +100,8 @@ class Replica(process):
     def receive(msg=M, from_=sender):
         msg_type = M[0]
         output('received message %s from: %s' % (M, sender))
+        logging.info(f"[received '{M[0]}' message] from: [{sender}] \n\
+            content = [{M}]")
         if msg_type == 'proposal':
             process_proposal_msg(M[1], sender)
         elif msg_type == 'vote':
@@ -87,11 +111,19 @@ class Replica(process):
         elif msg_type == 'request' and sender in clients:
             # process request from client
             txn = M[1]
+
+            author = txn[1]
+            signature = M[2]
+
+            if not safety.verify_client(author, signature):
+                # invalid signature, reject the request
+                pass
             # check if duplicate (otherwise add to mempool.pending)
             commit_state_id = mempool.check_transaction(txn, sender)
             if commit_state_id:
                 # duplicate request, reply to client
                 output('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
+                logging.info('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
                 multicast(('committed', txn, commit_state_id), to=sender)
     
     # Procedure process_certificate_qc(qc)
@@ -156,6 +188,7 @@ class Replica(process):
     def process_new_round_event(last_tc):
         if to_str() == leaderelection.get_leader(pacemaker.current_round):
             output('%s is now leader for current round %d' % (to_str(), pacemaker.current_round))
+            logging.info(f'[{to_str()} is now the leader for current round {pacemaker.current_round}]')
             # TODO in rust implementation, blockstore has path_from_commit_root method
             # which returns list of uncommitted but proposed transactions from the last committed
             # block to the currently proposed block (i think?)
@@ -163,11 +196,13 @@ class Replica(process):
             # so we don't propose a duplicate txn
             # so something like this:
             exclude_payloads = [block.payload for block in blocktree.path_from_commit_root()]
-            b = blocktree.generate_block(
-                mempool.get_transactions(exclude_payloads),
-                pacemaker.current_round
-            )
-            broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
+            transactions = mempool.get_transactions(exclude_payloads)
+            if len(transactions) > 0 or blocktree.high_qc != blocktree.high_commit_qc:
+                b = blocktree.generate_block(
+                    transactions,
+                    pacemaker.current_round
+                )
+                broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
 
     def broadcast(msg):
         multicast(msg, to=replica_ids)

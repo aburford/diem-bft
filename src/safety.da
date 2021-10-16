@@ -5,14 +5,10 @@ import blocktree
 from nacl.signing import SigningKey
 import replica
 import pickle
+import logging
 
-#TODO:generate signatures, and verify them
-# Any valid vote is thus prepared and signed by the Safety module,which has the private keys
-
-# generates votes based on 
 u = None # a str representing replica id
 private_key = None
-# Own private key
 public_keys = {} # Public keys of all validators, a dictionary.
 highest_vote_round = -1 # initially 0
 highest_qc_round = -2
@@ -38,7 +34,7 @@ def __consecutive(block_round, round):
 # Function safe to extend(block round, qc round, tc)
 # └return consecutive(block round, tc.round) ∧ qc round ≥ max{tc.tmo high qc rounds}
 def __safe_to_extend(block_round, qc_round, tc):
-    return __consecutive(block_round, tc.round) and qc_round >= max(tc.tmo_high_qc_rounds)
+    return __consecutive(block_round, tc.round) and (tc == None or qc_round >= max(tc.tmo_high_qc_rounds))
 
 # Function safe to vote(block round, qc round, tc)
 # | if block round ≤ max{highest vote round, qc round} then
@@ -94,6 +90,14 @@ def sign_u(*payloads):
     payloads_bytes = pickle.dumps(payloads)
     return private_key.sign(payloads_bytes) # sign the input in bytes with private key.
 
+
+def verify_client(author, signature):
+    try:
+        public_keys[author].verify(signature)
+    except:
+        return False
+    return True
+
 # Function make vote(b, last tc)
 # | qc round ← b.qc.vote info.round
 # | if valid signatures(b, last tc) ∧ safe to vote(b.round, qc round, last tc) then
@@ -133,6 +137,11 @@ def make_vote(b, last_tc):
             vote_info = vote_info
         )
         vote_msg = blocktree.VoteMsg(vote_info, ledger_commit_info, blocktree.high_commit_qc)
+        logging.info(f"[made a vote message] \n\
+        content = [vote_info = {vote_info} \n\
+        ledger_commit_info = {ledger_commit_info}\n\
+        high_commit_qc = {blocktree.high_commit_qc}]")
+
         return vote_msg
     return None
 
@@ -150,5 +159,8 @@ def make_timeout(round, high_qc, last_tc):
     if __valid_signatures(high_qc, last_tc) and __safe_to_timeout(round, qc_round, last_tc):
         __increase_highest_vote_round(round) # Stop voting for round
         timeout_info = blocktree.TimeoutInfo(round, high_qc)
+        logging.info(f"[made a timeout info] \n\
+        content = [round = {round} \n\
+        high_qc = {high_qc}]")
         return timeout_info
     return None

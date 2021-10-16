@@ -61,6 +61,13 @@ class VoteInfo:
         self.parent_round = parent_round
         self.exec_state_id = exec_state_id
 
+    # def __repr__(self):
+    #     return f"\n\
+    #     id: {self.id} \n\
+    #     round: {self.round} \n\
+    #     parent_id: {self.parent_id} \n\
+    #     parent_round: {self.parent_round} \n\
+    #     exec_state_id: {self.exec_state_id} "
 # // speculated new committed state to vote directly on
 # LedgerCommitInfo
 # │ commit_state_id; // ⊥ if no commit happens when this vote is aggregated to QC
@@ -75,8 +82,10 @@ class LedgerCommitInfo:
             vote_info.parent_round,
             vote_info.exec_state_id,
         )
+    # def __repr__(self):
+    #     return f"commit_state_id: {self.commit_state_id} \n\
+    #             vote_info_hash: {self.vote_info_hash}"
 
-# VoteMsg
 # │ vote_info; // A VoteInfo record
 # │ ledger_commit_info; // Speculated ledger info
 # │ high_commit_qc; // QC to synchronize on committed blocks
@@ -89,6 +98,13 @@ class VoteMsg:
         self.high_commit_qc = high_commit_qc
         self.sender = u
         self.signature = safety.sign_u(ledger_commit_info)
+
+    # def __repr__(self):
+    #     return f"vote_info: {self.vote_info} \n\
+    #             ledger_commit_info: {self.ledger_commit_info} \n\
+    #             high_commit_qc: {self.high_commit_qc} \n\
+    #             sender: {self.sender} \n\
+    #             signature: {self.signature}"
 
 # // QC is a VoteMsg with multiple signatures
 # QC
@@ -105,6 +121,12 @@ class QC:
         self.author = u
         self.author_signature = safety.sign_u(signatures)
 
+    # def __repr__(self):
+    #     return f"vote_info: {self.vote_info} \n\
+    #             ledger_commit_info: {self.ledger_commit_info} \n\
+    #             signatures: {self.signatures} \n\
+    #             author: {self.author} \n\
+    #             author_signature: {self.author_signature}"
 # Block
 # │ author; // The author of the block, may not be the same as qc.author after view-change
 # │ round; // The round that generated this proposal
@@ -120,6 +142,14 @@ class Block:
         # TODO: add author, qc.vote_info.id, and qc.signatures
         self.id = hash(block_round, payload)
 
+    # def __repr__(self):
+    #     return f"\n\
+    # \tauthor: {self.author} \n\
+    # \tround: {self.round} \n\
+    # \tpayload: {self.payload} \n\
+    # \tqc: {self.qc} \n\
+    # \tid: {self.id}\n\
+    # "
 
 # TimeoutInfo
 # │ round;
@@ -136,6 +166,11 @@ class TimeoutInfo:
         else:
             self.signature = safety.sign_u(round, high_qc.vote_info.round)
         
+    # def __repr__(self):
+    #     return f"round: {self.round} \n\
+    #             high_qc: {self.high_qc} \n\
+    #             sender: {self.sender} \n\
+    #             signature: {self.signature}"
 # TC
 # │ round; // All timeout messages that form TC have the same round
 # │ tmo_high_qc_rounds; // A vector of 2f + 1 high qc round numbers of timeout messages that form TC
@@ -146,6 +181,11 @@ class TC:
         self.tmo_high_qc_rounds = tmo_high_qc_rounds
         self.tmo_signatures = tmo_signatures
 
+    # def __repr__(self):
+    #     return f"round: {self.round} \n\
+    #             tmo_high_qc_rounds: {self.tmo_high_qc_rounds} \n\
+    #             tmo_signatures: {self.tmo_signatures}"
+
 # TimeoutMsg
 # │ tmo_info; // TimeoutInfo for some round with a high qc
 # │ last_round_tc; // TC for tmo_info.round − 1 if tmo_info.high_qc.round != tmo_info.round − 1, else ⊥
@@ -155,6 +195,11 @@ class TimeoutMsg:
         self.tmo_info = tmo_info
         self.last_round_tc = last_round_tc
         self.high_commit_qc = high_commit_qc
+
+    # def __repr__(self):
+    #     return f"tmo_info: {self.tmo_info} \n\
+    #             last_round_tc: {self.last_round_tc} \n\
+    #             high_commit_qc: {self.high_commit_qc}"
 
 # ProposalMsg
 # │ block;
@@ -167,6 +212,12 @@ class ProposalMsg:
         self.last_round_tc = last_round_tc
         self.high_commit_qc = high_commit_qc
         self.signature = safety.sign_u(block.id)
+    # def __repr__(self):
+    #     return f"\n\
+    # block: {{{self.block}}} \n\
+    # last_round_tc: {self.last_round_tc} \n\
+    # high_commit_qc: {self.high_commit_qc} \n\
+    # signature: {self.signature} "
 
 # QC with the highest round
 def max_qc(qc1, qc2):
@@ -194,6 +245,7 @@ def process_qc(qc):
             qc.ledger_commit_info.commit_state_id != None:
         ledger.commit(qc.vote_info.parent_id)
         pending_block_tree.prune(qc.vote_info.parent_id)
+        old_high_commit_qc = high_commit_qc
         high_commit_qc = max_qc(qc, high_commit_qc)
         high_qc = max_qc(qc, high_qc)
         block = ledger.committed_block(qc.vote_info.parent_id)
@@ -264,10 +316,12 @@ def generate_block(txns, current_round):
 def path_from_commit_root():
     path = []
     qc = high_qc
-    while qc != None:
+    if high_commit_qc == None:
+        high_commit_qc_parent_id = None
+    else:
+        high_commit_qc_parent_id = high_commit_qc.vote_info.parent_id
+    while qc != None and qc.vote_info.id != high_commit_qc_parent_id:
         block = pending_block_tree.id_to_block[qc.vote_info.id].block
         path.append(block)
-        if qc == high_commit_qc:
-            break
         qc = block.qc
     return path

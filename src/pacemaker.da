@@ -7,11 +7,16 @@ pending_timeouts = {} # Timeouts per round
 timers = {}
 transmission_delay_bound = 0
 # |Function get round timer(r)
-# └ return round timer formula  
+# └ return round timer formula 
+logging = None
 def get_round_timer(r):
     return timers[r]
 
 def start_timer(new_round): 
+    global current_round
+
+    stop_timer(current_round)
+    current_round = new_round
     timers[new_round] = (
         # Timer duration
         4 * transmission_delay_bound,
@@ -41,6 +46,8 @@ def local_timeout_round(broadcast):
         timeout_msg = blocktree.TimeoutMsg(timeout_info, last_round_tc, blocktree.high_commit_qc)
         broadcast(('timeout', timeout_msg))
         start_timer(current_round)
+        logging.info(f"[Timeout with timeout message]\n\
+             [{timeout_msg}]")
 
 # Function process remote timeout(tmo)
 # tmo info ← tmo.tmo info
@@ -74,15 +81,15 @@ def process_remote_timeout(broadcast, tmo):
     if len(pending_timeouts[tmo_info.round]) == 2 * f + 1: 
         round = tmo_info.round
         # tmo high qc rounds ← {t.high qc.round | t ∈ pending timeouts[tmo info.round]}
-        if tmo_info.high_qc == None:
-            tmo_high_qc_rounds = set()
-        else:
-            tmo_high_qc_rounds = setof(t.high_qc.round, t in pending_timeouts[tmo_info.round])
+        tmo_high_qc_rounds = set()
+        for sender in pending_timeouts[tmo_info.round]:
+            t = pending_timeouts[tmo_info.round][sender]
+            if t.high_qc == None:
+                tmo_high_qc_rounds.add(-1)
+            else:
+                tmo_high_qc_rounds.add(t.high_qc.vote_info.round)
         # signatures ← {t.signature | t ∈ pending timeouts[tmo info.round]})
-        signatures = setof(
-            pending_timeouts[tmo_info.round][t].signature,
-            t in pending_timeouts[tmo_info.round]
-        )
+        signatures = {(sender, pending_timeouts[tmo_info.round][sender].signature) for sender in pending_timeouts[tmo_info.round]}
         timeout_certificate = blocktree.TC(round, tmo_high_qc_rounds, signatures)
         return timeout_certificate
     return None
@@ -101,7 +108,7 @@ def advance_round_tc(tc):
         return False
     last_round_tc = tc
     start_timer(tc.round + 1)
-    current_round += 1
+    logging.info(f"[advances round {current_round} using TC]")
     return True
 
 # Function advance round qc(qc)
@@ -117,13 +124,5 @@ def advance_round_qc(qc_round):
         return False
     last_round_tc = None
     start_timer(qc_round + 1)
-    current_round += 1
+    logging.info(f"[advances round {current_round} using QC]")
     return True
-
-# use a round_done variable in replica,
-# when call 'advance_round', check if it returns true -> set round_doen = true
-
-# in replica, make a function x that sets 'round_done to true'
-# in pacemaker, start_timer() calls function x
-
-# in replica setup : pacemaker.start_timer = start_timer
