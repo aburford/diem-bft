@@ -124,7 +124,7 @@ def main():
                     num_clients = 1
                 )
             ],
-            transmission_delay_bound = .5,
+            transmission_delay_bound = 1,
             seed = 0,
             testcase_name = "configs"
         )

@@ -39,11 +39,13 @@ class Replica(process):
         leaderelection.validators = sorted(list(replica_ids))
         leaderelection.exclude_size = num_faulty
         pacemaker.transmission_delay_bound = transmission_delay_bound
+        pacemaker.u = to_str()
         pacemaker.f = num_faulty
         blocktree.u = to_str()
         blocktree.f = num_faulty
         pacemaker.f = num_faulty
         mempool.u = to_str()
+        ledger.u = to_str()
         random.seed(seed)
 
     
@@ -124,7 +126,7 @@ class Replica(process):
                 # duplicate request, reply to client
                 output('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
                 logging.info('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
-                multicast(('committed', txn, commit_state_id), to=sender)
+                send(('committed', txn, commit_state_id), to=sender)
     
     # Procedure process_certificate_qc(qc)
     # │ Block-Tree.process_qc(qc)
@@ -197,7 +199,7 @@ class Replica(process):
             # so something like this:
             exclude_payloads = [block.payload for block in blocktree.path_from_commit_root()]
             transactions = mempool.get_transactions(exclude_payloads)
-            if len(transactions) > 0 or blocktree.high_qc != blocktree.high_commit_qc:
+            if len(transactions) > 0 or blocktree.pending_transaction():
                 b = blocktree.generate_block(
                     transactions,
                     pacemaker.current_round
