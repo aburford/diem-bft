@@ -18,6 +18,9 @@ class PendingBlockTree:
         ledger.pending_block_tree = self
         self.id_to_block = {}
 
+    def contains(self, block_id):
+        return block_id in self.id_to_block
+
     def add(self, block):
         pending_block = PendingBlock(block)
         self.id_to_block[block.id] = pending_block
@@ -145,7 +148,7 @@ class TC:
 
 # TimeoutMsg
 # │ tmo_info; // TimeoutInfo for some round with a high qc
-# │ last_round_tc; // TC for tmo_info.round − 1 if tmo_info.high_qc.round ̸= tmo_info.round − 1, else ⊥
+# │ last_round_tc; // TC for tmo_info.round − 1 if tmo_info.high_qc.round != tmo_info.round − 1, else ⊥
 # └ high_commit_qc; // QC to synchronize on committed blocks
 class TimeoutMsg:
     def __init__(self, tmo_info, last_round_tc, high_commit_qc):

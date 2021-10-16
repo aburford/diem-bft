@@ -1,0 +1,17 @@
+import blocktree
+import pacemaker
+
+syncing = False
+msg_queue = []
+# return True if we need to sync up before processing the next proposal/timeout
+def need_sync(remote_high_commit_qc, remote_high_qc, msg):
+    # TODO what is actually sent?
+    if syncing:
+        msg_queue.append(msg)
+        return True
+    if not blocktree.pending_block_tree.contains(remote_high_commit_qc.vote_info.parent_id) or not blocktree.pending_block_tree.contains(remote_high_qc.vote_info.id):
+        syncing = True
+        return True
+
+def sync_up(remote_high_commit_qc, remote_high_qc):
+    

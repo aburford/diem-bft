@@ -62,10 +62,10 @@ class Replica(process):
         output('started running')
         process_new_round_event(None)
         pacemaker.start_timer(0)
-        while not received(('done',)):
+        while True:
             (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
             if await received(('done',)):
-                pass
+                break
             elif timeout(duration):
                 if not(paused):
                     pacemaker.local_timeout_round(broadcast)
