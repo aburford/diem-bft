@@ -4,10 +4,14 @@ from time import sleep
 import random
 import safety
 from config import *
+import logging
 
 class Client(process):
-    def setup(replicas:set, runner, workload, public_keys, private_key, id, seed, num_faulty):
+    def setup(replicas:set, runner, workload, public_keys, private_key, id, seed, num_faulty, testcase_name):
+        logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
+                format='[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w')
         output('configured with %s workload for %d requests' % (workload.type.name, workload.count))
+        logging.info('configured with %s workload for %d requests' % (workload.type.name, workload.count))
         safety.public_keys = public_keys
         safety.private_key = private_key
         random.seed(seed)
@@ -18,10 +22,11 @@ class Client(process):
     
     def send_request(i, uuid):
         # TODO include signature
-        command = to_str() + str(i)
+        signature = safety.sign_u(i)
+        command = to_str() + str(i) # client0 -> server .... server calls safety.verify_u("client0", signuature)
         author = to_str()
         txn = (command, author, uuid)
-        send(('request', txn), to=replicas)
+        send(('request', txn, signature), to=replicas)
         return txn
     
     def run():
@@ -31,7 +36,9 @@ class Client(process):
         # 2. include unique id to avoid request duplication
         # 3. client should be able to determine when a submitted request
         #       has been submitted to the ledger
+
         output('started running')
+        logging.info('[start running]')
         if workload.type == WorkloadType.retransmit:
             # send requests
             duration = 1
@@ -45,6 +52,7 @@ class Client(process):
                         committed = True
                     elif timeout(duration):
                         output('timed out requesting commit for txn:', txn)
+                        logging.info(f'[timed out requesting commit for transaction]:{txn}')
                         duration *= 2
                 duration /= 2
         elif workload.type == WorkloadType.flood:
@@ -52,8 +60,10 @@ class Client(process):
                 send_request(i)
             if await(each(sent(('request', txn)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
                 output('all txns committed')
+                logging.info('[all transacations commmited]')
             elif timeout(workload.timeout):
                 output('failed to commit all transactions after %d seconds' % workload.timeout)
+                logging.info(f'[failed to commit all transactions after {workload.timeout} seconds]')
         elif workload.type == WorkloadType.timed:
             assert workload.count == len(workload.delays) - 1
             workload.delays.append(0)
@@ -62,7 +72,10 @@ class Client(process):
                 sleep(workload.delays[i])
             if await(each(sent(('request', txn)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
                 output('all txns committed')
+                logging.info("[all transactions committed]")
             elif timeout(workload.timeout):
                 output('failed to commit all transactions after %d seconds' % workload.timeout)
+                logging.info(f'[failed to commit all transactions after {workload.timeout} seconds]')
         output('done sending commands')
+        logging.info("[done sending commands]")
         send(('done',), to=runner)

@@ -7,7 +7,8 @@ pending_timeouts = {} # Timeouts per round
 timers = {}
 transmission_delay_bound = 0
 # |Function get round timer(r)
-# └ return round timer formula  
+# └ return round timer formula 
+logging = None
 def get_round_timer(r):
     return timers[r]
 
@@ -44,6 +45,8 @@ def local_timeout_round(broadcast):
     if timeout_info:
         timeout_msg = blocktree.TimeoutMsg(timeout_info, last_round_tc, blocktree.high_commit_qc)
         broadcast(('timeout', timeout_msg))
+        logging.info(f"[Timeout with timeout message]\n\
+             [{timeout_msg}]")
 
 # Function process remote timeout(tmo)
 # tmo info ← tmo.tmo info
@@ -104,6 +107,7 @@ def advance_round_tc(tc):
         return False
     last_round_tc = tc
     start_timer(tc.round + 1)
+    logging.info(f"[advances round {current_round} using TC]")
     return True
 
 # Function advance round qc(qc)
@@ -119,12 +123,5 @@ def advance_round_qc(qc_round):
         return False
     last_round_tc = None
     start_timer(qc_round + 1)
+    logging.info(f"[advances round {current_round} using QC]")
     return True
-
-# use a round_done variable in replica,
-# when call 'advance_round', check if it returns true -> set round_doen = true
-
-# in replica, make a function x that sets 'round_done to true'
-# in pacemaker, start_timer() calls function x
-
-# in replica setup : pacemaker.start_timer = start_timer
