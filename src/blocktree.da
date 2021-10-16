@@ -191,6 +191,7 @@ def process_qc(qc):
             qc.ledger_commit_info.commit_state_id != None:
         ledger.commit(qc.vote_info.parent_id)
         pending_block_tree.prune(qc.vote_info.parent_id)
+        old_high_commit_qc = high_commit_qc
         high_commit_qc = max_qc(qc, high_commit_qc)
         high_qc = max_qc(qc, high_qc)
         block = ledger.committed_block(qc.vote_info.parent_id)
@@ -261,10 +262,12 @@ def generate_block(txns, current_round):
 def path_from_commit_root():
     path = []
     qc = high_qc
-    while qc != None:
+    if high_commit_qc == None:
+        high_commit_qc_parent_id = None
+    else:
+        high_commit_qc_parent_id = high_commit_qc.vote_info.parent_id
+    while qc != None and qc.vote_info.id != high_commit_qc_parent_id:
         block = pending_block_tree.id_to_block[qc.vote_info.id].block
         path.append(block)
-        if qc == high_commit_qc:
-            break
         qc = block.qc
     return path

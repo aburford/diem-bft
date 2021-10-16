@@ -67,6 +67,7 @@ class Replica(process):
             if await received(('done',)):
                 pass
             elif timeout(duration):
+                (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
                 if not(paused):
                     pacemaker.local_timeout_round(broadcast)
         output('finished running')
@@ -163,11 +164,13 @@ class Replica(process):
             # so we don't propose a duplicate txn
             # so something like this:
             exclude_payloads = [block.payload for block in blocktree.path_from_commit_root()]
-            b = blocktree.generate_block(
-                mempool.get_transactions(exclude_payloads),
-                pacemaker.current_round
-            )
-            broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
+            transactions = mempool.get_transactions(exclude_payloads)
+            if len(transactions) > 0 or blocktree.high_qc != blocktree.high_commit_qc:
+                b = blocktree.generate_block(
+                    transactions,
+                    pacemaker.current_round
+                )
+                broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
 
     def broadcast(msg):
         multicast(msg, to=replica_ids)

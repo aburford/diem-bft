@@ -96,11 +96,11 @@ def main():
             workloads = [
                 Workload(
                     type = WorkloadType.retransmit,
-                    count = 10,
+                    count = 15,
                     num_clients = 1
                 )
             ],
-            transmission_delay_bound = 1,
+            transmission_delay_bound = .5,
             seed = 0
         )
     ]

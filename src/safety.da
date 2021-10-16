@@ -38,7 +38,7 @@ def __consecutive(block_round, round):
 # Function safe to extend(block round, qc round, tc)
 # └return consecutive(block round, tc.round) ∧ qc round ≥ max{tc.tmo high qc rounds}
 def __safe_to_extend(block_round, qc_round, tc):
-    return __consecutive(block_round, tc.round) and qc_round >= max(tc.tmo_high_qc_rounds)
+    return __consecutive(block_round, tc.round) and (tc == None or qc_round >= max(tc.tmo_high_qc_rounds))
 
 # Function safe to vote(block round, qc round, tc)
 # | if block round ≤ max{highest vote round, qc round} then
