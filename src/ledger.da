@@ -1,10 +1,11 @@
 import nacl.hash
 import os
 import logging
+import blocktree
 
 logging = None
 HASHER = nacl.hash.sha256
-state_tree = {}
+id_to_pending = {}
 # We only need to store the max(window_size, 2 * |validators|) most recently 
 # committed blocks
 committed_queue = []
@@ -51,7 +52,6 @@ def speculate(prev_block_id, block_id, txns):
         block_id,
         txns
     )
-    state_tree[state.id] = state
     pending_block_to_state[block_id] = state
     
 # pending state(block_id) // find the pending state for the given block id or ⊥
@@ -65,19 +65,18 @@ def pending_state(block_id):
 
 def commit_prefix(state):
     global pending_block_to_state
-    global state_tree
 
     # Commit the state only if it is pending
     if state.block_id in pending_block_to_state:
         # If the parent is not committed, commit it first
-        if state.parent_state_id in state_tree:
-            commit_prefix(state_tree[state.parent_state_id])
+        if state.parent_state_id in pending_block_to_state:
+            commit_prefix(pending_block_to_state[state.parent_state_id])
         ledger_file.write(state.commands)
         ledger_file.flush()
         os.fsync(ledger_file.fileno())
         # TODO: add the committed block to committed_blocks
-        pending_block = pending_block_tree.id_to_block.get(state.block_id)
-        committed_blocks[state.block_id] = pending_block.block
+        pending_block = pending_block_to_state.get(state.block_id)
+        committed_blocks[state.block_id] = blocktree.pending_block_tree.id_to_block[state.block_id].block
         # TODO: pop the front of committed_queue when it has more than
         if len(committed_queue) > max(window_size, 2 * validators):
             committed_blocks.pop(committed_queue.pop())
