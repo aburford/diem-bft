@@ -41,7 +41,7 @@ class Client(process):
         logging.info('[start running]')
         if workload.type == WorkloadType.retransmit:
             # send requests
-            duration = 1
+            duration = .1
             for i in range(workload.count):
                 committed = False
                 uuid = '%xu' % random.getrandbits(16*8)

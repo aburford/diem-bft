@@ -11,6 +11,7 @@ import os
 
 if not(os.path.isdir("log")):
     os.mkdir("log")
+
 class Run(process):
     def setup(config, failure_config):
         self.num_replicas = config.num_replicas
@@ -85,8 +86,10 @@ class Run(process):
                     testcase_name
                 )
             )
-        for i, (client, workload) in enumerate(zip(clients, workloads)):
-            setup(client, (
+        i = 0
+        for workload in workloads:
+            for c in range(workload.num_clients):
+                setup(clients[i], (
                 replicas,
                 self,
                 workload,
@@ -97,6 +100,7 @@ class Run(process):
                 num_faulty,
                 testcase_name
             ))
+            i += 1
         start(replicas + clients)
         await(each(c in clients, has=received(('done',), from_=c)))
         output('All clients finished sending requests')
@@ -107,12 +111,17 @@ class Run(process):
 def main():
     configs = [
         Config(
-            num_replicas = 5,
-            num_faulty = 0,
+            num_replicas = 4,
+            num_faulty = 1,
             workloads = [
                 Workload(
                     type = WorkloadType.retransmit,
-                    count = 15,
+                    count = 5,
+                    num_clients = 1
+                ),
+                Workload(
+                    type = WorkloadType.retransmit,
+                    count = 6,
                     num_clients = 1
                 )
             ],
