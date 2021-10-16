@@ -216,6 +216,16 @@ class ProposalMsg:
     # high_commit_qc: {self.high_commit_qc} \n\
     # signature: {self.signature} "
 
+class SyncRequestMsg:
+    def __init__(self, high_commit_qc, high_qc):
+        self.high_commit_qc
+        self.high_qc
+
+class SyncResponseMsg:
+    def __init__(self, commit_chain, high_qc_path):
+        self.commit_chain
+        self.high_qc_path
+
 # QC with the highest round
 def max_qc(qc1, qc2):
     if qc1 == None:
@@ -318,4 +328,6 @@ def path_from_commit_root():
         if qc == high_commit_qc:
             break
         qc = block.qc
+    # increasing round order
+    path.reverse()
     return path

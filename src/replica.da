@@ -10,6 +10,7 @@ import safety
 import random
 import pickle
 import logging
+import syncmanager
 
 class Replica(process):
     def setup(
@@ -45,7 +46,10 @@ class Replica(process):
         pacemaker.f = num_faulty
         mempool.u = to_str()
         random.seed(seed)
-
+        syncmanager.u = to_str()
+        syncmanager.multicast = multicast
+        syncmanager.process_certificate_qc = process_certificate_qc
+        syncmanager.handle_msg = handle_msg
     
         if not isFI:
             logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
@@ -97,6 +101,10 @@ class Replica(process):
     # │ if M is a vote message then process_vote_msg(M)
     # └ if M is a timeout message then process_timeout_msg(M)
     def receive(msg=M, from_=sender):
+        handle_msg(M, sender)
+
+    # indirectly called so we can replay messages from syncmanager
+    def handle_msg(M, sender):
         msg_type = M[0]
         output('received message %s from: %s' % (M, sender))
         logging.info(f"[received '{M[0]}' message] from: [{sender}] \n\
@@ -107,6 +115,10 @@ class Replica(process):
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
             process_timeout_msg(M[1], sender)
+        elif msg_type == 'sync_request':
+            syncmanager.process_sync_request(M[1], sender)
+        elif msg_type == 'sync_response':
+            syncmanager.process_sync_response(M[1], sender)
         elif msg_type == 'request' and sender in clients:
             # process request from client
             txn = M[1]
@@ -141,7 +153,7 @@ class Replica(process):
                 )
             leaderelection.update_leaders(qc)
             pacemaker.advance_round_qc(qc.vote_info.round)
-    
+
     # Procedure process_proposal_msg(P)
     # │ process_certificate_qc(P.block.qc)
     # │ process_certificate_qc(P.high_commit_qc)
@@ -155,6 +167,8 @@ class Replica(process):
     # │ if vote_msg ≠ ⊥ then
     # └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
     def process_proposal_msg(P, sender):
+        if syncmanager.need_sync(P.high_commit_qc, P.block.qc, P, sender):
+            return
         process_certificate_qc(P.block.qc)
         process_certificate_qc(P.high_commit_qc)
         pacemaker.advance_round_tc(P.last_round_tc)
@@ -179,6 +193,10 @@ class Replica(process):
             process_new_round_event(tc)
 
     def process_vote_msg(M, sender):
+        # TODO technically if we are missing the block voted on in the previous round we need to request that with a sync request
+        # but that's a new case cause there's no QC for that block yet...
+        if syncmanager.need_vote_sync(M.high_commit_qc, M.vote_info.id, P, sender):
+            return
         qc = blocktree.process_vote(M)
         if qc:
             process_certificate_qc(qc)
