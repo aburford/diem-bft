@@ -1,17 +1,117 @@
 import blocktree
+from blocktree import SyncRequestMsg, SyncResponseMsg
 import pacemaker
 
 syncing = False
+syncing_high_commit_qc = None
+syncing_high_qc = None
+# TODO are these ProcessID objects or to_str() ids?
+attempted_peers = set()
 msg_queue = []
-# return True if we need to sync up before processing the next proposal/timeout
-def need_sync(remote_high_commit_qc, remote_high_qc, msg):
-    # TODO what is actually sent?
-    if syncing:
-        msg_queue.append(msg)
-        return True
-    if not blocktree.pending_block_tree.contains(remote_high_commit_qc.vote_info.parent_id) or not blocktree.pending_block_tree.contains(remote_high_qc.vote_info.id):
-        syncing = True
-        return True
+# set by Replica
+u = None
+multicast = None
+process_certificate_qc = None
+handle_msg = None
 
-def sync_up(remote_high_commit_qc, remote_high_qc):
-    
+
+# return True if we need to sync up before processing the next proposal/timeout
+def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):
+    if syncing:
+        msg_queue.append((msg, src))
+        return True
+    syncing_high_commit_qc = remote_high_commit_qc
+    syncing_high_qc = remote_high_qc
+    if not synced():
+        syncing = True
+        msg_queue.append((msg, src))
+        send_sync_request()
+        return True
+    return False
+
+def process_sync_request(sync_request, src):
+    chain = ledger.get_commit_chain(sync_request.high_commit_qc)
+    path = blocktree.path_from_commit_root()
+    resp = SyncResponseMsg(chain, path)
+    multicast(('sync_response', resp), src)
+
+def process_sync_response(sync_response, src):
+    if not syncing:
+        return False
+    # first catch up high_commit_qc
+    sync_high_commit_qc(sync_response)
+    sync_high_qc(sync_response)
+    # check if we're done
+    if synced():
+        end_sync()
+    else:
+        attempted_peers.add(src)
+        send_sync_request()
+
+
+# ---------------
+# private methods
+# ---------------
+
+
+def high_commit_qc_synced():
+    return blocktree.pending_block_tree.contains(syncing_high_commit_qc.vote_info.parent_id)
+
+def high_qc_synced():
+    blocktree.pending_block_tree.contains(syncing_high_qc.vote_info.id)
+
+def synced():
+    return high_commit_qc_synced() and high_qc_synced()
+
+def send_sync_request():
+    # first bring high_commit_qc up to date
+    req = SyncRequestMsg(blocktree.high_commit_qc, blocktree.high_qc)
+    qc = syncing_high_qc if high_commit_qc_synced() else syncing_high_commit_qc
+    signators = {replica for replica, signature in qc.signatures}
+    # randomly pop a replica from the quorum
+    # if we timeout, let the next proposal trigger a new sync
+    not_tried = signators - attempted_peers
+    # there must be non faulty nodes in signators
+    # so if we received a response, it would end the sync
+    # and clear attempted_peers
+    assert len(not_tried)
+    multicast(('sync_request', req), not_tried.pop())
+
+def timeout():
+    msg_queue.clear()
+    end_sync()
+
+def end_sync():
+    syncing = False
+    msg_queue.reverse()
+    # TODO the source of the message in receive handler will now be ourselves...
+    # so i'm pretty sure that's an issue...
+    while(len(msg_queue)):
+        handle_msg(*msg_queue)
+    attempted_peers.clear()
+
+def sync_high_commit_qc(sync_response):
+    if sync_response.commit_chain[-1].round < syncing_high_commit_qc.vote_info.parent_round:
+        return False
+    for block in sync_response.commit_chain:
+        if not blocktree.pending_block_tree.contains(block.qc.vote_info.id):
+            return False
+        process_certificate_qc(block.qc)
+        if pacemaker.current_round == block.round:
+            blocktree.execute_and_insert(block)
+    return True
+
+def sync_high_qc(sync_response):
+    if sync_response.high_qc_path[-1].round < syncing_high_qc.vote_info.round:
+        return False
+    for block in sync_response.high_qc_path:
+        if not blocktree.pending_block_tree.contains(block.qc.id):
+            # we could receive a path whose prefix we have already committed
+            # so continue until we have the pending parent block
+            continue
+        process_certificate_qc(block.qc)
+        if pacemaker.current_round == block.round:
+            blocktree.execute_and_insert(block)
+    return True
+        
+
