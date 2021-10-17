@@ -23,7 +23,7 @@ class Client(process):
     def send_request(i, uuid):
         # TODO include signature
         signature = safety.sign_u(i)
-        command = to_str() + str(i) # client0 -> server .... server calls safety.verify_u("client0", signuature)
+        command = to_str() + '-' + str(i) # client0 -> server .... server calls safety.verify_u("client0", signuature)
         author = to_str()
         txn = (command, author, uuid)
         send(('request', txn, signature), to=replicas)

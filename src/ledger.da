@@ -1,15 +1,14 @@
 import nacl.hash
 import os
 import logging
-import blocktree
+from collections import OrderedDict
 
 logging = None
 HASHER = nacl.hash.sha256
 id_to_pending = {}
 # We only need to store the max(window_size, 2 * |validators|) most recently 
 # committed blocks
-committed_queue = []
-committed_blocks = {}
+committed_blocks = OrderedDict()
 pending_block_to_state = {}
 
 window_size = 5
@@ -75,12 +74,13 @@ def commit_prefix(state):
         ledger_file.flush()
         os.fsync(ledger_file.fileno())
         # TODO: add the committed block to committed_blocks
-        pending_block = pending_block_to_state.get(state.block_id)
-        committed_blocks[state.block_id] = blocktree.pending_block_tree.id_to_block[state.block_id].block
-        # TODO: pop the front of committed_queue when it has more than
-        if len(committed_queue) > max(window_size, 2 * validators):
-            committed_blocks.pop(committed_queue.pop())
-        committed_queue.insert(0, state.block_id)
+        pending_block = pending_block_tree.id_to_block.get(state.block_id)
+        committed_blocks[state.block_id] = pending_block.block
+        # here is where we would pop the front of committed_queue when it has more than
+        #if len(committed_blocks) > max(window_size, 2 * validators):
+        #    committed_blocks.pop(list(committed_blocks.keys())[0])
+        # but instead we do not bound committed_blocks' size so that replicas may fall arbitrarily far behind but still catch up easily
+        # they could still catch up if we read from the ledger and a replica waited for f + 1 matching ledger replies to catch up but that loses linearity
 
 def dfs(new_pending, state):
     for child in state.children:
@@ -105,3 +105,16 @@ def commit(block_id):
 # committed_block(block_id) // returns a committed block given its id
 def committed_block(block_id):
     return committed_blocks.get(block_id)
+
+# return path from block_id to most recent committed block
+def get_commit_chain(block_id):
+    if not committed_block(block_id):
+        return []
+    block_ids = list(committed_blocks.keys())
+    i = block_ids.index(block_id)
+    chain = []
+    while i < len(committed_blocks):
+        chain.append(committed_blocks[block_ids[i]])
+        i += 1
+    return chain
+    

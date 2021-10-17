@@ -41,6 +41,7 @@ class ReplicaFI(process, Replica):
         random.seed(failure_config.seed)
         logging.basicConfig(filename = f"log/{testcase_name}_replicafi{id}.log",level=logging.INFO,
             format='[%(asctime)s] - [%(message)s]',filemode='w')
+
     def send(m, to):
         prob_success = 1
         delay = 0

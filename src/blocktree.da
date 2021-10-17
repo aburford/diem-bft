@@ -18,6 +18,9 @@ class PendingBlockTree:
         ledger.pending_block_tree = self
         self.id_to_block = {}
 
+    def contains(self, block_id):
+        return block_id in self.id_to_block
+
     def add(self, block):
         pending_block = PendingBlock(block)
         self.id_to_block[block.id] = pending_block
@@ -185,7 +188,7 @@ class TC:
 
 # TimeoutMsg
 # │ tmo_info; // TimeoutInfo for some round with a high qc
-# │ last_round_tc; // TC for tmo_info.round − 1 if tmo_info.high_qc.round ̸= tmo_info.round − 1, else ⊥
+# │ last_round_tc; // TC for tmo_info.round − 1 if tmo_info.high_qc.round != tmo_info.round − 1, else ⊥
 # └ high_commit_qc; // QC to synchronize on committed blocks
 class TimeoutMsg:
     def __init__(self, tmo_info, last_round_tc, high_commit_qc):
@@ -215,6 +218,16 @@ class ProposalMsg:
     # last_round_tc: {self.last_round_tc} \n\
     # high_commit_qc: {self.high_commit_qc} \n\
     # signature: {self.signature} "
+
+class SyncRequestMsg:
+    def __init__(self, high_commit_qc, high_qc):
+        self.high_commit_qc
+        self.high_qc
+
+class SyncResponseMsg:
+    def __init__(self, commit_chain, high_qc_path):
+        self.commit_chain
+        self.high_qc_path
 
 # QC with the highest round
 def max_qc(qc1, qc2):
@@ -321,6 +334,8 @@ def path_from_commit_root():
         block = pending_block_tree.id_to_block[qc.vote_info.id].block
         path.append(block)
         qc = block.qc
+    # increasing round order
+    path.reverse()
     return path
 
 def pending_transaction():
