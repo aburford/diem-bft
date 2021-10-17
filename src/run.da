@@ -5,10 +5,10 @@ import leaderelection
 import random
 from nacl.signing import SigningKey
 import sys
-from config import *
 import logging
 import os
 import importlib
+from config import *
 
 if not(os.path.isdir("log")):
     os.mkdir("log")
@@ -113,7 +113,7 @@ def main():
     failure_configs = []
     test_cases = ["syncup", "two_clients"]
     for test_case in test_cases:
-        test_module = importlib.import_module(test_case)
+        test_module = importlib.import_module("configs." + test_case)
         configs.append(test_module.config)
         failure_configs.append(test_module.failure_config)
     # logger = logging.getLogger('setup')
