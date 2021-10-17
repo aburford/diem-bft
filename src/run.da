@@ -109,7 +109,8 @@ class Run(process):
 
 def main():
     test_cases = []
-    test_case_names = ["syncup", "two_clients"]
+    #test_case_names = ["syncup", "two_clients"]
+    test_case_names = ["syncup"]
     for test_case_name in test_case_names:
         test_module = importlib.import_module("configs." + test_case_name)
         test_cases.append((
