@@ -53,12 +53,12 @@ class ReplicaFI(process, Replica):
                 continue
             if not (failure.src == id or failure.src == '_' or \
                     failure.src == 'leader' and \
-                    self == leaderelection.get_leader(pacemaker.current_round)):
+                    self == server_ids[leaderelection.get_leader(pacemaker.current_round)]):
                 continue
             if not (failure.dest == server_ids[to] or \
                     failure.dest == '_' or \
                     failure.dest == 'leader' and \
-                    to == leaderelection.get_leader(pacemaker.current_round)):
+                    server_ids[to] == leaderelection.get_leader(pacemaker.current_round)):
                 continue
             if failure.fail_type == FailType.MsgLoss:
                 output('LOSING MESSAGE')
@@ -82,4 +82,3 @@ class ReplicaFI(process, Replica):
         else:
             output('LOST MESSAGE')
             logging.info('LOST MESSAGE')
-                
