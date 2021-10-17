@@ -111,6 +111,9 @@ def committed_block(block_id):
 
 # return path from block_id to most recent committed block
 def get_commit_chain(block_id):
+    if block_id == None:
+        # return the entire chain
+        return [block for _, block in committed_blocks.items()]
     if not committed_block(block_id):
         return []
     block_ids = list(committed_blocks.keys())

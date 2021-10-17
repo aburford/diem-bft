@@ -23,6 +23,8 @@ class PendingBlockTree:
 
     def add(self, block):
         pending_block = PendingBlock(block)
+        if block.qc and block.qc.vote_info.id not in self.id_to_block:
+            print('---------BROKEN PENDING BLOCKTREE (SHOULD NEVER HAPPEN)---------')
         self.id_to_block[block.id] = pending_block
         if block.qc != None and \
                 block.qc.vote_info.id in self.id_to_block:
@@ -221,13 +223,13 @@ class ProposalMsg:
 
 class SyncRequestMsg:
     def __init__(self, high_commit_qc, high_qc):
-        self.high_commit_qc
-        self.high_qc
+        self.high_commit_qc = high_commit_qc
+        self.high_qc = high_qc
 
 class SyncResponseMsg:
     def __init__(self, commit_chain, high_qc_path):
-        self.commit_chain
-        self.high_qc_path
+        self.commit_chain = commit_chain
+        self.high_qc_path = high_qc_path
 
 # QC with the highest round
 def max_qc(qc1, qc2):

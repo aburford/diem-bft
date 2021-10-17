@@ -11,6 +11,7 @@ import random
 import pickle
 import logging
 import syncmanager
+import pickle
 
 class Replica(process):
     def setup(
@@ -54,6 +55,7 @@ class Replica(process):
         syncmanager.multicast = multicast
         syncmanager.process_certificate_qc = process_certificate_qc
         syncmanager.handle_msg = handle_msg
+        syncmanager.server_ids = server_ids
     
         if not isFI:
             logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
@@ -125,8 +127,10 @@ class Replica(process):
         elif msg_type == 'timeout':
             process_timeout_msg(M[1], sender)
         elif msg_type == 'sync_request':
+            output('%s received %s message from %s' % (to_str(), M[0], server_ids[sender]))
             syncmanager.process_sync_request(M[1], sender)
         elif msg_type == 'sync_response':
+            output('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], server_ids[sender], M[1].high_qc_path[-1].round))
             syncmanager.process_sync_response(M[1], sender)
         elif msg_type == 'request' and sender in clients:
             # process request from client
@@ -174,7 +178,7 @@ class Replica(process):
     # │ if vote_msg ≠ ⊥ then
     # └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
     def process_proposal_msg(P, sender):
-        if syncmanager.need_sync(P.high_commit_qc, P.block.qc, P, sender):
+        if syncmanager.need_sync(P.high_commit_qc, P.block.qc, ('proposal', P), sender):
             output('%s has started syncing' % to_str())
             return
         process_certificate_qc(P.block.qc)
@@ -193,7 +197,7 @@ class Replica(process):
 
     def process_timeout_msg(M, sender):
         output("%s processing timeout" % to_str())
-        if not syncmanager.need_sync(M.high_commit_qc, M.tmo_info.high_qc, M, sender):
+        if not syncmanager.need_sync(M.high_commit_qc, M.tmo_info.high_qc, ('timeout', M), sender):
             process_certificate_qc(M.tmo_info.high_qc)
             process_certificate_qc(M.high_commit_qc)
         # we can still handle the qc's in the TC even if we aren't synced up to them
@@ -235,7 +239,11 @@ class Replica(process):
                     pacemaker.current_round
                 )
                 output('proposing txns:', transactions)
-                broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
+                msg = blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)
+                print('len:', len(pickle.dumps(msg)))
+                # why does message get huge in round 5?
+                # some kind of circular dependency
+                broadcast(('proposal', msg))
             else:
                 output(to_str() + ' has no reason to generate proposal')
 

@@ -5,7 +5,7 @@ config = Config(
     workloads = [
         Workload(
             type = WorkloadType.flood,
-            count = 4*10,
+            count = 4*3,
             num_clients = 1,
             timeout = 20
         )
@@ -22,7 +22,32 @@ failure_config = FailureConfig(
             round = [0,1,2],
             prob = 1,
             fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = 'leader',
+            dest = 'replica2',
+            msg_type = MsgType.Proposal,
+            round = [3],
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = 'leader',
+            dest = 'replica1',
+            msg_type = MsgType.Proposal,
+            round = [3],
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = 'leader',
+            dest = 'replica0',
+            msg_type = MsgType.Proposal,
+            round = [3],
+            prob = 1,
+            fail_type = FailType.MsgLoss
         )
+
             
         #Failure(
         #    src = 'leader',
