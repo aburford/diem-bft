@@ -17,6 +17,7 @@ handle_msg = None
 
 # return True if we need to sync up before processing this proposal
 def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):
+    global syncing
     if syncing:
         msg_queue.append((msg, src))
         return True

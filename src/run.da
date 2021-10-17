@@ -8,6 +8,7 @@ import sys
 from config import *
 import logging
 import os
+import importlib
 
 if not(os.path.isdir("log")):
     os.mkdir("log")
@@ -108,45 +109,17 @@ class Run(process):
 
 
 def main():
-    configs = [
-        Config(
-            num_replicas = 4,
-            num_faulty = 1,
-            workloads = [
-                Workload(
-                    type = WorkloadType.retransmit,
-                    count = 5,
-                    num_clients = 1
-                ),
-                Workload(
-                    type = WorkloadType.retransmit,
-                    count = 6,
-                    num_clients = 1
-                )
-            ],
-            transmission_delay_bound = .5,
-            seed = 0,
-            testcase_name = "configs"
-        )
-    ]
-    failure_configs = [
-        FailureConfig(
-            failures = [
-                #Failure(
-                #    src = '_',
-                #    dest = 'leader',
-                #    msg_type = MsgType.Proposal,
-                #    round = 0,
-                #    prob = 1,
-                #    fail_type = FailType.MsgLoss
-                #)
-            ],
-            seed = 0
-        )
-    ]
+    configs = []
+    failure_configs = []
+    test_cases = ["syncup", "two_clients"]
+    for test_case in test_cases:
+        test_module = importlib.import_module(test_case)
+        configs.append(test_module.config)
+        failure_configs.append(test_module.failure_config)
     # logger = logging.getLogger('setup')
     # logger.info('About to create replicas ...')
     #logging.config.dictConfig(configs[0])
+    print('read  configs:', configs)
     for config, failure_config in zip(configs, failure_configs):
         r = new(Run, (config, failure_config))
         start(r)
