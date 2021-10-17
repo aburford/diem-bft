@@ -5,13 +5,14 @@ import blocktree
 from nacl.signing import SigningKey
 import replica
 import pickle
-import logging
+#import logging
 
 u = None # a str representing replica id
 private_key = None
 public_keys = {} # Public keys of all validators, a dictionary.
 highest_vote_round = -1 # initially 0
 highest_qc_round = -2
+logger = None
 # ----- private functions---------
 # Procedure increase highest vote round(round)
 # | commit not to vote in rounds lower than round
@@ -137,10 +138,10 @@ def make_vote(b, last_tc):
             vote_info = vote_info
         )
         vote_msg = blocktree.VoteMsg(vote_info, ledger_commit_info, blocktree.high_commit_qc)
-        logging.info(f"[made a vote message] \n\
+        logger.info(f"[made a vote message] \n\
         content = [vote_info = {vote_info} \n\
-        ledger_commit_info = {ledger_commit_info}\n\
-        high_commit_qc = {blocktree.high_commit_qc}]")
+                   ledger_commit_info = {ledger_commit_info}\n\
+                   high_commit_qc = {blocktree.high_commit_qc}]")
 
         return vote_msg
     return None
@@ -159,8 +160,7 @@ def make_timeout(round, high_qc, last_tc):
     if __valid_signatures(high_qc, last_tc) and __safe_to_timeout(round, qc_round, last_tc):
         __increase_highest_vote_round(round) # Stop voting for round
         timeout_info = blocktree.TimeoutInfo(round, high_qc)
-        logging.info(f"[made a timeout info] \n\
-        content = [round = {round} \n\
-        high_qc = {high_qc}]")
+        logger.info(f"[made a timeout info] \n\
+        content = [round = {round} , high_qc = {high_qc}]")
         return timeout_info
     return None

@@ -1,9 +1,9 @@
 import nacl.hash
 import os
-import logging
+#import logging
 from collections import OrderedDict
 
-logging = None
+logger = None
 HASHER = nacl.hash.sha256
 state_tree = {}
 # We only need to store the max(window_size, 2 * |validators|) most recently 
@@ -98,7 +98,7 @@ def commit(block_id):
         state = pending_block_to_state[block_id]
         # Commit the pending prefix
         commit_prefix(state)
-        logging.info(f"Commit the pending prefix of block id = [{block_id}]")
+        logger.info(f"Commit the pending prefix of block id = [{block_id}]")
         # Prune the other branches  
         new_pending = {}
         dfs(new_pending, state)

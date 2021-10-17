@@ -5,7 +5,6 @@ import random
 import safety
 from config import *
 from time import sleep
-import logging
 
 class ReplicaFI(process, Replica):
     def setup(
@@ -35,13 +34,9 @@ class ReplicaFI(process, Replica):
             seed,
             server_ids,
             num_faulty,
-            testcase_name,
-            isFI = True
+            testcase_name
         )
         random.seed(failure_config.seed)
-        logging.basicConfig(filename = f"log/{testcase_name}_replicafi{id}.log",level=logging.INFO,
-            format='[%(asctime)s] - [%(message)s]',filemode='w')
-        print(logging)
 
     def send(m, to):
         prob_success = 1
@@ -62,8 +57,8 @@ class ReplicaFI(process, Replica):
                     to == leaderelection.get_leader(pacemaker.current_round)):
                 continue
             if failure.fail_type == FailType.MsgLoss:
-                output('LOSING MESSAGE')
-                logging.info('LOSING MESSAGE')
+                #output('LOSING MESSAGE')
+                logger.info('LOSING MESSAGE')
                 prob_success *= (1 - failure.prob)
             elif failure.fail_type == FailType.Delay and random.random() < failure.prob:
                 delay += failure.val
@@ -81,6 +76,6 @@ class ReplicaFI(process, Replica):
             sleep(delay)
             super().send(m, to)
         else:
-            output('LOST MESSAGE')
-            logging.info('LOST MESSAGE')
+            #output('LOST MESSAGE')
+            logger.info('LOST MESSAGE')
                 

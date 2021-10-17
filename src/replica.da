@@ -9,8 +9,8 @@ import leaderelection
 import safety
 import random
 import pickle
-import logging
 import syncmanager
+from logger import createLogger
 
 class Replica(process):
     def setup(
@@ -25,8 +25,7 @@ class Replica(process):
         seed,
         server_ids,
         num_faulty,
-        testcase_name,
-        isFI = False
+        testcase_name
     ):
         self.id_to_server = {server_ids[server]: server for server in server_ids.keys()}
 
@@ -51,19 +50,24 @@ class Replica(process):
         syncmanager.process_certificate_qc = process_certificate_qc
         syncmanager.handle_msg = handle_msg
     
-        if not isFI:
-            logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
-                format= '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w') 
-            pacemaker.logging = logging
-            ledger.logging = logging
-            safety.logging = logging
+        
+    
+            
+        # logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
+        #     format= '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w') 
+        formatter = '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s'
+        self.logger = createLogger(__name__,f"log/{testcase_name}_{to_str()}.log",formatter)
+        pacemaker.logger = self.logger
+        ledger.logger = self.logger
+        safety.logger = self.logger
 
-            logging.info(f"[Initial settings for current replica]: \n\
-            public keys are: {public_keys}\n\
-            private key is: {private_key}\n\
-            random seed is: {seed}\n\
-            total replicas are: {replicas}\n\
-            transmission delay bound is: {transmission_delay_bound}")
+        logger.info(f"[Initial settings for current replica]: \n\
+        public keys are: {public_keys}\n\
+        private key is: {private_key}\n\
+        random seed is: {seed}\n\
+        total replicas are: {replicas}\n\
+        transmission delay bound is: {transmission_delay_bound}")
+
         
     def multicast(msg, to):
         if isinstance(to, set):
@@ -72,7 +76,7 @@ class Replica(process):
             return
         to = self.id_to_server[to]
         send(msg, to=to)
-        logging.info(f"[send '{msg[0]}' message] to [{to}] \n\
+        logger.info(f"[send '{msg[0]}' message] to [{to}] \n\
             content={msg}")
     
     # __str__ doesn't seem to work with DistAlgo...
@@ -82,8 +86,8 @@ class Replica(process):
     # loop: wait for next event M ; Main.start_event_processing(M)
     # if M is a local timeout then Pacemaker.local_timeout_round()
     def run():
-        output('started running')
-        logging.info("[started running]")
+        #output('started running')
+        logger.info("[started running]")
         process_new_round_event(None)
         pacemaker.start_timer(0)
         while True:
@@ -94,8 +98,8 @@ class Replica(process):
                 (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
                 if not(paused):
                     pacemaker.local_timeout_round(broadcast)
-        output('finished running')
-        logging.info("[finished running]")
+        #output('finished running')
+        logger.info("[finished running]")
     
     # Procedure start event processing(M)
     # │ if M is a proposal message then process_proposal_msg(M)
@@ -107,8 +111,8 @@ class Replica(process):
     # indirectly called so we can replay messages from syncmanager
     def handle_msg(M, sender):
         msg_type = M[0]
-        output('received message %s from: %s' % (M, sender))
-        logging.info(f"[received '{M[0]}' message] from: [{sender}] \n\
+        #output('received message %s from: %s' % (M, sender))
+        logger.info(f"[received '{M[0]}' message] from: [{sender}] \n\
             content = [{M}]")
         if msg_type == 'proposal':
             process_proposal_msg(M[1], sender)
@@ -134,8 +138,8 @@ class Replica(process):
             commit_state_id = mempool.check_transaction(txn, sender)
             if commit_state_id:
                 # duplicate request, reply to client
-                output('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
-                logging.info('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
+                #output('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
+                logger.info('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
                 multicast(('committed', txn, commit_state_id), to=sender)
     
     # Procedure process_certificate_qc(qc)
@@ -205,8 +209,8 @@ class Replica(process):
 
     def process_new_round_event(last_tc):
         if to_str() == leaderelection.get_leader(pacemaker.current_round):
-            output('%s is now leader for current round %d' % (to_str(), pacemaker.current_round))
-            logging.info(f'[{to_str()} is now the leader for current round {pacemaker.current_round}]')
+            #output('%s is now leader for current round %d' % (to_str(), pacemaker.current_round))
+            logger.info(f'[{to_str()} is now the leader for current round {pacemaker.current_round}]')
             # TODO in rust implementation, blockstore has path_from_commit_root method
             # which returns list of uncommitted but proposed transactions from the last committed
             # block to the currently proposed block (i think?)
