@@ -1,6 +1,11 @@
 from collections import OrderedDict
 requests = OrderedDict()
+# maximum number of transactions to include in a block
+BLOCK_SIZE = 4
 SIZE = 100
+# set by replica
+id_to_server = None
+multicast = None
 
 # first idea (wrong):
 # pending set() keeps track of pending requests
@@ -36,17 +41,14 @@ def get_transactions(exclude_payloads):
     payload = [requests[uuid][0] for uuid in requests
         if (uuid not in exclude_uuids and requests[uuid][1] == None)
     ]
-    return payload
+    return payload[:BLOCK_SIZE]
 
-def commit_transactions(txns, commit_state_id, clients, multicast):
+def commit_transactions(txns, commit_state_id):
+    print('committing txns:', txns)
     for (command, author, uuid) in txns:
         requests.move_to_end(uuid, last=False)
         requests[uuid] = ((command, author, uuid), commit_state_id)
-        client = [c for c in clients if c == author]
-        if not len(client):
-            output('unrecognized client in txn (this should never happen)')
-        client = client[0]
-        # TODO okay to use send here?
+        client = id_to_server[author]
         multicast(('committed', (command, author, uuid), commit_state_id), to=client)
         if len(requests) == SIZE:
-            committed.popitem()
+            requests.popitem()

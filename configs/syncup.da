@@ -4,9 +4,10 @@ config = Config(
     num_faulty = 1,
     workloads = [
         Workload(
-            type = WorkloadType.retransmit,
-            count = 1,
-            num_clients = 1
+            type = WorkloadType.flood,
+            count = 16,
+            num_clients = 1,
+            timeout = 20
         )
     ],
     transmission_delay_bound = .5,

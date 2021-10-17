@@ -46,6 +46,8 @@ class Replica(process):
         blocktree.f = num_faulty
         pacemaker.f = num_faulty
         mempool.u = to_str()
+        mempool.id_to_server = self.id_to_server
+        mempool.multicast = multicast
         ledger.u = to_str()
         random.seed(seed)
         syncmanager.u = to_str()
@@ -111,8 +113,9 @@ class Replica(process):
     # indirectly called so we can replay messages from syncmanager
     def handle_msg(M, sender):
         msg_type = M[0]
-        output('received message %s from: %s' % (M, sender))
-        logging.info(f"[received '{M[0]}' message] from: [{sender}] \n\
+        if M[0] != 'timeout':
+            output('%s received %s message from %s' % (to_str(), M[0], server_ids[sender]))
+        logging.info(f"[received '{M[0]}' message] from: [{server_ids[sender]}] \n\
             content = [{M}]")
         if msg_type == 'proposal':
             process_proposal_msg(M[1], sender)
@@ -152,9 +155,7 @@ class Replica(process):
             if committed_payload != None:
                 mempool.commit_transactions(
                     committed_payload,
-                    commit_state_id,
-                    client_ids,
-                    multicast
+                    commit_state_id
                 )
             leaderelection.update_leaders(qc)
             pacemaker.advance_round_qc(qc.vote_info.round)
@@ -172,6 +173,7 @@ class Replica(process):
     # │ if vote_msg ≠ ⊥ then
     # └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
     def process_proposal_msg(P, sender):
+        print('processing proposal', P.high_commit_qc, P.block.qc)
         if syncmanager.need_sync(P.high_commit_qc, P.block.qc, P, sender):
             return
         process_certificate_qc(P.block.qc)
@@ -200,7 +202,7 @@ class Replica(process):
     def process_vote_msg(M, sender):
         # TODO technically if we are missing the block voted on in the previous round we need to request that with a sync request
         # but that's a new case cause there's no QC for that block yet...
-        if syncmanager.need_vote_sync(M.high_commit_qc, M.vote_info.id, P, sender):
+        if syncmanager.need_vote_sync(M.high_commit_qc, M.vote_info, M, sender):
             return
         qc = blocktree.process_vote(M)
         if qc:
@@ -225,6 +227,8 @@ class Replica(process):
                     pacemaker.current_round
                 )
                 broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
+            else:
+                output(to_str() + ' has no reason to generate proposal')
 
     def broadcast(msg):
         multicast(msg, to=replica_ids)

@@ -1,5 +1,6 @@
 import blocktree 
 import safety 
+import syncmanager
 
 current_round = 0 # Initially zero
 last_round_tc = None # Initially ⊥
@@ -45,6 +46,7 @@ def local_timeout_round(broadcast):
     if timeout_info:
         timeout_msg = blocktree.TimeoutMsg(timeout_info, last_round_tc, blocktree.high_commit_qc)
         broadcast(('timeout', timeout_msg))
+        syncmanager.timeout()
         start_timer(current_round)
         logging.info(f"[Timeout with timeout message]\n\
              [{timeout_msg}]")

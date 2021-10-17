@@ -61,9 +61,14 @@ def process_sync_response(sync_response, src):
 
 
 def high_commit_qc_synced():
+    if syncing_high_commit_qc == None:
+        return True
     return blocktree.pending_block_tree.contains(syncing_high_commit_qc.vote_info.parent_id)
 
 def high_qc_synced():
+    # first proposal
+    if syncing_high_qc == None:
+        return True
     blocktree.pending_block_tree.contains(syncing_high_qc.vote_info.id)
 
 def synced():
@@ -85,6 +90,7 @@ def send_sync_request():
 
 def timeout():
     msg_queue.clear()
+    attempted_peers.clear()
     end_sync()
 
 def end_sync():
