@@ -4,13 +4,13 @@ config = Config(
     num_faulty = 1,
     workloads = [
         Workload(
-            type = WorkloadType.flood,
-            count = 4*10,
-            num_clients = 1,
-            timeout = 20
+            type = WorkloadType.retransmit,
+            count = 10,
+            num_clients = 2,
+            timeout = 30
         )
     ],
-    transmission_delay_bound = .5,
+    transmission_delay_bound = .1,
     seed = 0,
 )
 failure_config = FailureConfig(
@@ -19,7 +19,7 @@ failure_config = FailureConfig(
             src = '_',
             dest = 'client0',
             msg_type = MsgType.Wildcard,
-            round = range(1,7),
+            round = range(6),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
@@ -27,7 +27,7 @@ failure_config = FailureConfig(
             src = 'client0',
             dest = '_',
             msg_type = MsgType.Wildcard,
-            round = range(1,7),
+            round = range(6),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
@@ -35,7 +35,7 @@ failure_config = FailureConfig(
             src = '_',
             dest = 'client1',
             msg_type = MsgType.Wildcard,
-            round = range(7,13),
+            round = range(6,12),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
@@ -43,7 +43,7 @@ failure_config = FailureConfig(
             src = 'client1',
             dest = '_',
             msg_type = MsgType.Wildcard,
-            round = range(7,13),
+            round = range(6,12),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
