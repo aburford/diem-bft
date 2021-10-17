@@ -337,3 +337,11 @@ def path_from_commit_root():
     # increasing round order
     path.reverse()
     return path
+
+def pending_transaction():
+    return high_qc != None and \
+    (len(pending_block_tree.id_to_block[high_qc.vote_info.id].block.payload) > 0 or \
+    (high_commit_qc != None and \
+    high_commit_qc.vote_info.parent_id != None and \
+    len(pending_block_tree.id_to_block[high_commit_qc.vote_info.parent_id].block.payload) > 0))
+

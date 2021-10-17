@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 logging = None
 HASHER = nacl.hash.sha256
-state_tree = {}
+id_to_pending = {}
 # We only need to store the max(window_size, 2 * |validators|) most recently 
 # committed blocks
 committed_blocks = OrderedDict()
@@ -15,13 +15,16 @@ window_size = 5
 
 ledger_file = None
 
-def make_ledger(filename):
+def open_ledger(filename):
     global ledger_file
 
     if not(os.path.isdir("ledger")):
         os.mkdir("ledger")
     # TODO: get LEDGER_ID filename from configuration
     ledger_file = open("ledger/" + filename, "w+")
+
+def close_ledger():
+    ledger_file.close()
 
 class LedgerState:
     def __init__(self, prev_block_id, block_id, txns):
@@ -51,7 +54,6 @@ def speculate(prev_block_id, block_id, txns):
         block_id,
         txns
     )
-    state_tree[state.id] = state
     pending_block_to_state[block_id] = state
     
 # pending state(block_id) // find the pending state for the given block id or ⊥
@@ -65,13 +67,12 @@ def pending_state(block_id):
 
 def commit_prefix(state):
     global pending_block_to_state
-    global state_tree
 
     # Commit the state only if it is pending
     if state.block_id in pending_block_to_state:
         # If the parent is not committed, commit it first
-        if state.parent_state_id in state_tree:
-            commit_prefix(state_tree[state.parent_state_id])
+        if state.parent_state_id in pending_block_to_state:
+            commit_prefix(pending_block_to_state[state.parent_state_id])
         ledger_file.write(state.commands)
         ledger_file.flush()
         os.fsync(ledger_file.fileno())

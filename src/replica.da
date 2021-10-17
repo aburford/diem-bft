@@ -33,13 +33,14 @@ class Replica(process):
         safety.public_keys = public_keys
         safety.private_key = private_key
         safety.u = to_str()
-        ledger.make_ledger(to_str())
+        ledger.open_ledger(testcase_name + "-" + to_str())
         ledger.validators = len(replica_ids)
 
         recent_proposals = deque()
         leaderelection.validators = sorted(list(replica_ids))
         leaderelection.exclude_size = num_faulty
         pacemaker.transmission_delay_bound = transmission_delay_bound
+        pacemaker.u = to_str()
         pacemaker.f = num_faulty
         blocktree.u = to_str()
         blocktree.f = num_faulty
@@ -47,6 +48,7 @@ class Replica(process):
         mempool.u = to_str()
         mempool.id_to_server = self.id_to_server
         mempool.multicast = multicast
+        ledger.u = to_str()
         random.seed(seed)
         syncmanager.u = to_str()
         syncmanager.multicast = multicast
@@ -97,6 +99,7 @@ class Replica(process):
                 (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
                 if not(paused):
                     pacemaker.local_timeout_round(broadcast)
+        ledger.close_ledger()
         output('finished running')
         logging.info("[finished running]")
     
@@ -140,7 +143,7 @@ class Replica(process):
                 # duplicate request, reply to client
                 output('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
                 logging.info('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
-                multicast(('committed', txn, commit_state_id), to=sender)
+                send(('committed', txn, commit_state_id), to=sender)
     
     # Procedure process_certificate_qc(qc)
     # │ Block-Tree.process_qc(qc)
@@ -218,7 +221,7 @@ class Replica(process):
             # so something like this:
             exclude_payloads = [block.payload for block in blocktree.path_from_commit_root()]
             transactions = mempool.get_transactions(exclude_payloads)
-            if len(transactions) > 0 or blocktree.high_qc != blocktree.high_commit_qc:
+            if len(transactions) > 0 or blocktree.pending_transaction():
                 b = blocktree.generate_block(
                     transactions,
                     pacemaker.current_round

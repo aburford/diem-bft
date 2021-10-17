@@ -5,16 +5,16 @@ import leaderelection
 import random
 from nacl.signing import SigningKey
 import sys
-from config import *
 import logging
 import os
 import importlib
+from config import *
 
 if not(os.path.isdir("log")):
     os.mkdir("log")
 
 class Run(process):
-    def setup(config, failure_config):
+    def setup(test_case, config, failure_config):
         self.num_replicas = config.num_replicas
         self.num_faulty = config.num_faulty
         self.workloads = config.workloads
@@ -24,9 +24,8 @@ class Run(process):
         else:
             self.seed = config.seed
         self.failure_config = failure_config
-        self.testcase_name = config.testcase_name
         output('using random seed: %d' % self.seed)
-        logging.basicConfig(filename = f"log/{self.testcase_name}_run.log",level=logging.INFO,
+        logging.basicConfig(filename = f"log/{test_case}_run.log",level=logging.INFO,
             format='%(asctime)s:%(message)s',filemode='w')
         logging.info(f'using random seed: {self.seed}')
 
@@ -83,7 +82,7 @@ class Run(process):
                     random.random(),
                     server_ids,
                     num_faulty,
-                    testcase_name
+                    test_case
                 )
             )
         i = 0
@@ -98,7 +97,7 @@ class Run(process):
                 i,
                 random.random(),
                 num_faulty,
-                testcase_name
+                test_case
             ))
             i += 1
         start(replicas + clients)
@@ -109,17 +108,19 @@ class Run(process):
 
 
 def main():
-    configs = []
-    failure_configs = []
-    #test_cases = ["syncup", "two_clients"]
-    test_cases = ["syncup"]
-    for test_case in test_cases:
-        test_module = importlib.import_module(test_case)
-        configs.append(test_module.config)
-        failure_configs.append(test_module.failure_config)
+    test_cases = []
+    test_case_names = ["syncup", "two_clients"]
+    for test_case_name in test_case_names:
+        test_module = importlib.import_module("configs." + test_case_name)
+        test_cases.append((
+            test_case_name,
+            test_module.config,
+            test_module.failure_config
+        ))
     # logger = logging.getLogger('setup')
     # logger.info('About to create replicas ...')
     #logging.config.dictConfig(configs[0])
-    for config, failure_config in zip(configs, failure_configs):
-        r = new(Run, (config, failure_config))
+    print('read configs:', [test_case[1] for test_case in test_cases])
+    for test_case, config, failure_config in test_cases:
+        r = new(Run, (test_case, config, failure_config))
         start(r)
