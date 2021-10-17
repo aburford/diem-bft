@@ -57,20 +57,23 @@ class Client(process):
                 duration /= 2
         elif workload.type == WorkloadType.flood:
             for i in range(workload.count):
-                send_request(i)
-            if await(each(sent(('request', txn)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
-                output('all txns committed')
+                uuid = '%xu' % random.getrandbits(16*8)
+                send_request(i, uuid)
+            if await(each(sent(('request', txn, _)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
+                output('all txns committed:')
+                output(setof(txn, sent(('request', txn))))
                 logging.info('[all transacations commmited]')
             elif timeout(workload.timeout):
                 output('failed to commit all transactions after %d seconds' % workload.timeout)
                 logging.info(f'[failed to commit all transactions after {workload.timeout} seconds]')
         elif workload.type == WorkloadType.timed:
-            assert workload.count == len(workload.delays) - 1
+            assert workload.count - 1 == len(workload.delays)
             workload.delays.append(0)
             for i in range(workload.count):
-                send_request(i)
+                uuid = '%xu' % random.getrandbits(16*8)
+                send_request(i, uuid)
                 sleep(workload.delays[i])
-            if await(each(sent(('request', txn)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
+            if await(each(sent(('request', txn, _)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
                 output('all txns committed')
                 logging.info("[all transactions committed]")
             elif timeout(workload.timeout):

@@ -111,7 +111,8 @@ class Run(process):
 def main():
     configs = []
     failure_configs = []
-    test_cases = ["syncup", "two_clients"]
+    #test_cases = ["syncup", "two_clients"]
+    test_cases = ["syncup"]
     for test_case in test_cases:
         test_module = importlib.import_module(test_case)
         configs.append(test_module.config)
@@ -119,7 +120,6 @@ def main():
     # logger = logging.getLogger('setup')
     # logger.info('About to create replicas ...')
     #logging.config.dictConfig(configs[0])
-    print('read  configs:', configs)
     for config, failure_config in zip(configs, failure_configs):
         r = new(Run, (config, failure_config))
         start(r)
