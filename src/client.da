@@ -59,9 +59,9 @@ class Client(process):
             for i in range(workload.count):
                 uuid = '%xu' % random.getrandbits(16*8)
                 send_request(i, uuid)
-            if await(each(sent(('request', txn, _)), has=len(setof(sender, received(('committed', _txn), from_=sender))) > num_faulty)):
+            if await(each(sent(('request', txn, _)), has=len(setof(sender, received(('committed', _txn, _), from_=sender))) > num_faulty)):
                 output('all txns committed:')
-                output(setof(txn, sent(('request', txn))))
+                output(setof(txn, sent(('request', txn, _))))
                 logging.info('[all transacations commmited]')
             elif timeout(workload.timeout):
                 output('failed to commit all transactions after %d seconds' % workload.timeout)
