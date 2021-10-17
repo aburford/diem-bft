@@ -33,7 +33,7 @@ class Replica(process):
         safety.public_keys = public_keys
         safety.private_key = private_key
         safety.u = to_str()
-        ledger.make_ledger(to_str())
+        ledger.open_ledger(testcase_name + "-" + to_str())
         ledger.validators = len(replica_ids)
 
         recent_proposals = deque()
@@ -97,6 +97,7 @@ class Replica(process):
                 (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
                 if not(paused):
                     pacemaker.local_timeout_round(broadcast)
+        ledger.close_ledger()
         output('finished running')
         logging.info("[finished running]")
     

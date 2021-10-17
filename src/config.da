@@ -20,7 +20,7 @@ class FailType(Enum):
 # timeout is used to flood and timed
 # delays is used for timed
 Workload = namedtuple('Workload', ['type', 'count', 'num_clients', 'timeout', 'delays'], defaults=(1, []))
-Config = namedtuple('Config', ['num_replicas', 'num_faulty', 'workloads', 'transmission_delay_bound', 'seed','testcase_name'], defaults=(None,))
+Config = namedtuple('Config', ['num_replicas', 'num_faulty', 'workloads', 'transmission_delay_bound', 'seed'], defaults=(None,))
 # add the parameter here too at line 23
 class WorkloadType(Enum):
 	retransmit = 1

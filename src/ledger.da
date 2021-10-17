@@ -15,13 +15,16 @@ window_size = 5
 
 ledger_file = None
 
-def make_ledger(filename):
+def open_ledger(filename):
     global ledger_file
 
     if not(os.path.isdir("ledger")):
         os.mkdir("ledger")
     # TODO: get LEDGER_ID filename from configuration
     ledger_file = open("ledger/" + filename, "w+")
+
+def close_ledger():
+    close(ledger_file)
 
 class LedgerState:
     def __init__(self, prev_block_id, block_id, txns):

@@ -11,7 +11,6 @@ config = Config(
     ],
     transmission_delay_bound = .5,
     seed = 0,
-    testcase_name = "configs"
 )
 failure_config = FailureConfig(
     failures = [
