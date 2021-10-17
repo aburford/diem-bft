@@ -24,10 +24,12 @@ def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):
     global syncing_high_qc
     if syncing:
         msg_queue.append((msg, src))
+        print('%s is already syncing' % u)
         return True
     syncing_high_commit_qc = remote_high_commit_qc
     syncing_high_qc = remote_high_qc
     if not synced():
+        print('%s starting new sync up to ' % u, syncing_high_qc.vote_info.id)
         syncing = True
         msg_queue.append((msg, src))
         send_sync_request()
@@ -40,37 +42,39 @@ def need_vote_sync(remote_high_commit_qc, vote_info, msg, src):
         return True
 
 def process_sync_request(sync_request, src):
-    #print('sync_request:')
-    #print(sync_request.high_commit_qc)
-    #print(sync_request.high_qc, sync_request.high_qc.vote_info.id)
-    #print(blocktree.pending_block_tree.id_to_block[sync_request.high_qc.vote_info.id].block.qc)
+    print('sync_request:')
+    print(sync_request.high_commit_qc)
+    print(sync_request.high_qc, sync_request.high_qc.vote_info.id)
+    print(blocktree.pending_block_tree.id_to_block[sync_request.high_qc.vote_info.id].block.qc)
     if blocktree.pending_block_tree.contains(sync_request.high_qc.vote_info.id):
-        #print('updating from sync_request')
+        print('updating from sync_request')
         process_certificate_qc(sync_request.high_qc)
     block_id = sync_request.high_commit_qc.vote_info.parent_id if sync_request.high_commit_qc else None
     chain = ledger.get_commit_chain(block_id)
     path = blocktree.path_from_commit_root()
-    #print('pending block tree:', blocktree.pending_block_tree.id_to_block)
-    #print('chain:', [b.id for b in chain])
-    #print('path:', [b.id for b in path])
-    #if sync_request.high_qc and (not len(path) or path[-1].round < sync_request.high_qc.vote_info.round) and blocktree.pending_block_tree.contains(sync_request.high_qc.vote_info.id):
-    #    print('adding extra block to path')
-    #    path.append(blocktree.pending_block_tree.id_to_block[sync_request.high_qc.vote_info.id].block)
-    #    print('path:', [b.id for b in path])
+    print('pending block tree:', blocktree.pending_block_tree.id_to_block)
+    print('chain:', [b.id for b in chain])
+    print('path:', [b.id for b in path])
     resp = SyncResponseMsg(chain, path)
     multicast(('sync_response', resp), src)
 
 def process_sync_response(sync_response, src):
+    print('%s got sync response' % u)
     if not syncing:
         return False
+    print('%s trying to sync' % u)
     # first catch up high_commit_qc
-    sync_high_commit_qc(sync_response)
-    sync_high_qc(sync_response)
+    if not sync_high_commit_qc(sync_response):
+        print('failed to sync high_commit_qc')
+    if not sync_high_qc(sync_response):
+        print('failed to sync high_qc')
+
     # check if we're done
     if synced():
-        print('%s finished syncing up' % u)
+        print('%s finished syncing up with %s' % (u, server_ids[src]))
         end_sync()
     else:
+        print('%s failed to sync with response from %s' % (u, server_ids[src]))
         attempted_peers.add(server_ids[src])
         send_sync_request()
 
@@ -109,6 +113,7 @@ def send_sync_request():
     multicast(('sync_request', req), not_tried.pop())
 
 def timeout():
+    print('%s sync ending due to timeout' % u)
     msg_queue.clear()
     attempted_peers.clear()
     end_sync()
@@ -123,20 +128,20 @@ def end_sync():
 
 def sync_high_commit_qc(sync_response):
     if not len(sync_response.commit_chain):
-        return
+        return False
     if syncing_high_commit_qc and sync_response.commit_chain[-1].round < syncing_high_commit_qc.vote_info.parent_round:
         return False
     for block in sync_response.commit_chain:
         if block.qc and not blocktree.pending_block_tree.contains(block.qc.vote_info.id):
+            print('------not sure why this happens--------')
             return False
         process_certificate_qc(block.qc)
-        if pacemaker.current_round == block.round:
-            blocktree.execute_and_insert(block)
+        blocktree.execute_and_insert(block)
     return True
 
 def sync_high_qc(sync_response):
     if not len(sync_response.high_qc_path):
-        return
+        return False
     if sync_response.high_qc_path[-1].round < syncing_high_qc.vote_info.round:
         return False
     for block in sync_response.high_qc_path:

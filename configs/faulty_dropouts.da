@@ -4,9 +4,9 @@ config = Config(
     num_faulty = 1,
     workloads = [
         Workload(
-            type = WorkloadType.retransmit,
-            count = 10,
-            num_clients = 2,
+            type = WorkloadType.flood,
+            count = 4*15,
+            num_clients = 1,
             timeout = 30
         )
     ],
@@ -31,47 +31,22 @@ failure_config = FailureConfig(
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.Wildcard,
-            round = range(6,12),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = range(6,12),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-            
         #Failure(
-        #    src = 'leader',
-        #    dest = '3',
-        #    msg_type = MsgType.Proposal,
-        #    round = 2,
+        #    src = '_',
+        #    dest = 'replica1',
+        #    msg_type = MsgType.Wildcard,
+        #    round = range(6,12),
         #    prob = 1,
         #    fail_type = FailType.MsgLoss
         #),
         #Failure(
-        #    src = 'leader',
-        #    dest = '3',
-        #    msg_type = MsgType.Proposal,
-        #    round = 3,
+        #    src = 'replica1',
+        #    dest = '_',
+        #    msg_type = MsgType.Wildcard,
+        #    round = range(6,12),
         #    prob = 1,
         #    fail_type = FailType.MsgLoss
         #),
-        #Failure(
-        #    src = 'leader',
-        #    dest = '3',
-        #    msg_type = MsgType.Proposal,
-        #    round = 4,
-        #    prob = 1,
-        #    fail_type = FailType.MsgLoss
-        #)
     ],
     seed = 0
 )
