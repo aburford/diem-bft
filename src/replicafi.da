@@ -49,7 +49,7 @@ class ReplicaFI(process, Replica):
         for failure in failure_config.failures:
             if failure.msg_type != MsgType.Wildcard and failure.msg_type.value != msg_type:
                 continue
-            if failure.round != pacemaker.current_round:
+            if pacemaker.current_round not in failure.round:
                 continue
             if not (failure.src == u or failure.src == '_' or \
                     failure.src == 'leader' and \
