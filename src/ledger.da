@@ -24,7 +24,7 @@ def open_ledger(filename):
     ledger_file = open("ledger/" + filename, "w+")
 
 def close_ledger():
-    close(ledger_file)
+    ledger_file.close()
 
 class LedgerState:
     def __init__(self, prev_block_id, block_id, txns):
