@@ -17,196 +17,61 @@ failure_config = FailureConfig(
     failures = [
         Failure(
             src = '_',
-            dest = 'replica0',
+            dest = 'client0',
             msg_type = MsgType.Wildcard,
-            round = 0,
+            round = range(6),
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = 'client0',
+            dest = '_',
+            msg_type = MsgType.Wildcard,
+            round = range(6),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
         Failure(
             src = '_',
-            dest = 'replica0',
+            dest = 'client1',
             msg_type = MsgType.Wildcard,
-            round = 1,
+            round = range(6,12),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
         Failure(
-            src = '_',
-            dest = 'replica0',
-            msg_type = MsgType.Wildcard,
-            round = 2,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica0',
-            msg_type = MsgType.Wildcard,
-            round = 3,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica0',
-            msg_type = MsgType.Wildcard,
-            round = 4,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica0',
-            msg_type = MsgType.Wildcard,
-            round = 5,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica0',
+            src = 'client1',
             dest = '_',
             msg_type = MsgType.Wildcard,
-            round = 0,
+            round = range(6,12),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
-        Failure(
-            src = 'replica0',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 1,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica0',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 2,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica0',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 3,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica0',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 4,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica0',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 5,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.Wildcard,
-            round = 6,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.Wildcard,
-            round = 7,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.Wildcard,
-            round = 8,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.Wildcard,
-            round = 9,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.Wildcard,
-            round = 10,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.Wildcard,
-            round = 11,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 6,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 7,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 8,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 9,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 10,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.Wildcard,
-            round = 11,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
+            
+        #Failure(
+        #    src = 'leader',
+        #    dest = '3',
+        #    msg_type = MsgType.Proposal,
+        #    round = 2,
+        #    prob = 1,
+        #    fail_type = FailType.MsgLoss
+        #),
+        #Failure(
+        #    src = 'leader',
+        #    dest = '3',
+        #    msg_type = MsgType.Proposal,
+        #    round = 3,
+        #    prob = 1,
+        #    fail_type = FailType.MsgLoss
+        #),
+        #Failure(
+        #    src = 'leader',
+        #    dest = '3',
+        #    msg_type = MsgType.Proposal,
+        #    round = 4,
+        #    prob = 1,
+        #    fail_type = FailType.MsgLoss
+        #)
     ],
     seed = 0
 )

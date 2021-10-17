@@ -76,5 +76,5 @@ class ReplicaFI(process, Replica):
             sleep(delay)
             super().send(m, to)
         else:
-            output('LOST MESSAGE')
+            output('%s LOST %s MESSAGE during round %d' % (u, msg_type, pacemaker.current_round))
             logging.info('LOST MESSAGE')
