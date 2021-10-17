@@ -192,13 +192,18 @@ class Replica(process):
             multicast(('vote', vote_msg), to=leaderelection.get_leader(current_round + 1))
 
     def process_timeout_msg(M, sender):
-        process_certificate_qc(M.tmo_info.high_qc)
-        process_certificate_qc(M.high_commit_qc)
+        output("%s processing timeout" % to_str())
+        if not syncmanager.need_sync(M.high_commit_qc, M.tmo_info.high_qc, M, sender):
+            process_certificate_qc(M.tmo_info.high_qc)
+            process_certificate_qc(M.high_commit_qc)
+        # we can still handle the qc's in the TC even if we aren't synced up to them
+        # because we don't put these qc's in blocktree until they are proposed in future rounds
         pacemaker.advance_round_tc(M.last_round_tc)
         tc = pacemaker.process_remote_timeout(M)
         if tc:
             pacemaker.advance_round_tc(tc)
             process_new_round_event(tc)
+        output("%s done processing timeout" % to_str())
 
     def process_vote_msg(M, sender):
         # TODO technically if we are missing the block voted on in the previous round we need to request that with a sync request

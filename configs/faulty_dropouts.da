@@ -17,14 +17,14 @@ failure_config = FailureConfig(
     failures = [
         Failure(
             src = '_',
-            dest = 'client0',
+            dest = 'replica0',
             msg_type = MsgType.Wildcard,
             round = range(6),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
         Failure(
-            src = 'client0',
+            src = 'replica0',
             dest = '_',
             msg_type = MsgType.Wildcard,
             round = range(6),
@@ -33,14 +33,14 @@ failure_config = FailureConfig(
         ),
         Failure(
             src = '_',
-            dest = 'client1',
+            dest = 'replica1',
             msg_type = MsgType.Wildcard,
             round = range(6,12),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
         Failure(
-            src = 'client1',
+            src = 'replica1',
             dest = '_',
             msg_type = MsgType.Wildcard,
             round = range(6,12),
