@@ -7,6 +7,7 @@ last_round_tc = None # Initially ⊥
 pending_timeouts = {} # Timeouts per round
 timers = {}
 transmission_delay_bound = 0
+broadcast = None
 # |Function get round timer(r)
 # └ return round timer formula 
 logging = None
@@ -40,7 +41,7 @@ def stop_timer(current_round):
 # broadcast TimeoutMsghtimeout info, last round tc, Block-Tree.high commit qci
 
 # TODO restart timeout timer in case timeout gets lost
-def local_timeout_round(broadcast):
+def local_timeout_round():
     #save_consensus_state()
     timeout_info = safety.make_timeout(current_round, blocktree.high_qc, last_round_tc)
     if timeout_info:
@@ -66,7 +67,7 @@ def local_timeout_round(broadcast):
 # tmo high qc rounds ← {t.high qc.round | t ∈ pending timeouts[tmo info.round]},
 # signatures ← {t.signature | t ∈ pending timeouts[tmo info.round]}i)
 # return ⊥
-def process_remote_timeout(broadcast, tmo):
+def process_remote_timeout(tmo):
     tmo_info = tmo.tmo_info
     if tmo_info.round < current_round: 
         return None
@@ -78,7 +79,7 @@ def process_remote_timeout(broadcast, tmo):
             pending_timeouts[tmo_info.round] = {tmo_info.sender: tmo_info}
     if len(pending_timeouts[tmo_info.round]) == f + 1: 
         stop_timer(current_round)
-        local_timeout_round(broadcast)  #Bracha timeout
+        local_timeout_round()  #Bracha timeout
         pass
     if len(pending_timeouts[tmo_info.round]) == 2 * f + 1: 
         round = tmo_info.round

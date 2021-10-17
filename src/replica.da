@@ -29,7 +29,7 @@ class Replica(process):
         isFI = False
     ):
         self.id_to_server = {server_ids[server]: server for server in server_ids.keys()}
-
+        self.u = to_str()
         safety.public_keys = public_keys
         safety.private_key = private_key
         safety.u = to_str()
@@ -42,9 +42,9 @@ class Replica(process):
         pacemaker.transmission_delay_bound = transmission_delay_bound
         pacemaker.u = to_str()
         pacemaker.f = num_faulty
+        pacemaker.broadcast = broadcast
         blocktree.u = to_str()
         blocktree.f = num_faulty
-        pacemaker.f = num_faulty
         mempool.u = to_str()
         mempool.id_to_server = self.id_to_server
         mempool.multicast = multicast
@@ -98,7 +98,7 @@ class Replica(process):
             elif timeout(duration):
                 (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
                 if not(paused):
-                    pacemaker.local_timeout_round(broadcast)
+                    pacemaker.local_timeout_round()
         ledger.close_ledger()
         output('finished running')
         logging.info("[finished running]")
@@ -191,10 +191,11 @@ class Replica(process):
             multicast(('vote', vote_msg), to=leaderelection.get_leader(current_round + 1))
 
     def process_timeout_msg(M, sender):
+        output('processing timeout message')
         process_certificate_qc(M.tmo_info.high_qc)
         process_certificate_qc(M.high_commit_qc)
         pacemaker.advance_round_tc(M.last_round_tc)
-        tc = pacemaker.process_remote_timeout(broadcast, M)
+        tc = pacemaker.process_remote_timeout(M)
         if tc:
             pacemaker.advance_round_tc(tc)
             process_new_round_event(tc)

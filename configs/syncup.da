@@ -22,31 +22,31 @@ failure_config = FailureConfig(
             round = 1,
             prob = 1,
             fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'leader',
-            dest = '3',
-            msg_type = MsgType.Proposal,
-            round = 2,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'leader',
-            dest = '3',
-            msg_type = MsgType.Proposal,
-            round = 3,
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'leader',
-            dest = '3',
-            msg_type = MsgType.Proposal,
-            round = 4,
-            prob = 1,
-            fail_type = FailType.MsgLoss
         )
+        #Failure(
+        #    src = 'leader',
+        #    dest = '3',
+        #    msg_type = MsgType.Proposal,
+        #    round = 2,
+        #    prob = 1,
+        #    fail_type = FailType.MsgLoss
+        #),
+        #Failure(
+        #    src = 'leader',
+        #    dest = '3',
+        #    msg_type = MsgType.Proposal,
+        #    round = 3,
+        #    prob = 1,
+        #    fail_type = FailType.MsgLoss
+        #),
+        #Failure(
+        #    src = 'leader',
+        #    dest = '3',
+        #    msg_type = MsgType.Proposal,
+        #    round = 4,
+        #    prob = 1,
+        #    fail_type = FailType.MsgLoss
+        #)
     ],
     seed = 0
 )

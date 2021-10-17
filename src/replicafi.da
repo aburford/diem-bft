@@ -51,9 +51,9 @@ class ReplicaFI(process, Replica):
                 continue
             if failure.round != pacemaker.current_round:
                 continue
-            if not (failure.src == id or failure.src == '_' or \
+            if not (failure.src == u or failure.src == '_' or \
                     failure.src == 'leader' and \
-                    self == server_ids[leaderelection.get_leader(pacemaker.current_round)]):
+                    u == leaderelection.get_leader(pacemaker.current_round)):
                 continue
             if not (failure.dest == server_ids[to] or \
                     failure.dest == '_' or \
@@ -61,14 +61,10 @@ class ReplicaFI(process, Replica):
                     server_ids[to] == leaderelection.get_leader(pacemaker.current_round)):
                 continue
             if failure.fail_type == FailType.MsgLoss:
-                output('LOSING MESSAGE')
-                logging.info('LOSING MESSAGE')
                 prob_success *= (1 - failure.prob)
             elif failure.fail_type == FailType.Delay and random.random() < failure.prob:
                 delay += failure.val
             elif failure.fail_type == FailType.SetAttr and random.random() < failure.prob:
-                # TODO confirm that the global variables in these modules are shared across
-                # parent/child classes
                 if failure.attr == 'last_vote_round':
                     safety.last_vote_round = failure.val
                 elif failure.attr == 'current_round':
