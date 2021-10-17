@@ -14,15 +14,16 @@ if not(os.path.isdir("log")):
     os.mkdir("log")
 
 class Run(process):
-    def setup(test_case, config, failure_config):
-        self.num_replicas = config.num_replicas
-        self.num_faulty = config.num_faulty
-        self.workloads = config.workloads
-        self.transmission_delay_bound = config.transmission_delay_bound
-        if config.seed == None:
+    def setup(test_case, run_config, failure_config):
+        # Stoller recommends doing this for macOS where UDP max datagram size is too small so this forces TCP
+        self.num_replicas = run_config.num_replicas
+        self.num_faulty = run_config.num_faulty
+        self.workloads = run_config.workloads
+        self.transmission_delay_bound = run_config.transmission_delay_bound
+        if run_config.seed == None:
             self.seed = random.randomint(0, sys.maxsize)
         else:
-            self.seed = config.seed
+            self.seed = run_config.seed
         self.failure_config = failure_config
         output('using random seed: %d' % self.seed)
         logging.basicConfig(filename = f"log/{test_case}_run.log",level=logging.INFO,
@@ -108,6 +109,7 @@ class Run(process):
 
 
 def main():
+    config(channel = 'reliable')
     test_cases = []
     #test_case_names = ["syncup", "two_clients"]
     test_case_names = ["syncup"]

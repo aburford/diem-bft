@@ -196,7 +196,6 @@ class Replica(process):
             multicast(('vote', vote_msg), to=leaderelection.get_leader(current_round + 1))
 
     def process_timeout_msg(M, sender):
-        output("%s processing timeout" % to_str())
         if not syncmanager.need_sync(M.high_commit_qc, M.tmo_info.high_qc, ('timeout', M), sender):
             process_certificate_qc(M.tmo_info.high_qc)
             process_certificate_qc(M.high_commit_qc)
@@ -207,7 +206,6 @@ class Replica(process):
         if tc:
             pacemaker.advance_round_tc(tc)
             process_new_round_event(tc)
-        output("%s done processing timeout" % to_str())
 
     def process_vote_msg(M, sender):
         # TODO technically if we are missing the block voted on in the previous round we need to request that with a sync request
@@ -240,9 +238,6 @@ class Replica(process):
                 )
                 output('proposing txns:', transactions)
                 msg = blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)
-                print('len:', len(pickle.dumps(msg)))
-                # why does message get huge in round 5?
-                # some kind of circular dependency
                 broadcast(('proposal', msg))
             else:
                 output(to_str() + ' has no reason to generate proposal')
