@@ -113,13 +113,14 @@ class Replica(process):
     # indirectly called so we can replay messages from syncmanager
     def handle_msg(M, sender):
         msg_type = M[0]
-        if M[0] != 'timeout':
-            output('%s received %s message from %s' % (to_str(), M[0], server_ids[sender]))
-        logging.info(f"[received '{M[0]}' message] from: [{server_ids[sender]}] \n\
+        sender_desc = server_ids[sender] if sender in server_ids else 'Runner'
+        logging.info(f"[received '{M[0]}' message] from: [{sender_desc}] \n\
             content = [{M}]")
         if msg_type == 'proposal':
+            output('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].block.round))
             process_proposal_msg(M[1], sender)
         elif msg_type == 'vote':
+            output('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].vote_info.round))
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
             process_timeout_msg(M[1], sender)
@@ -173,7 +174,6 @@ class Replica(process):
     # │ if vote_msg ≠ ⊥ then
     # └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
     def process_proposal_msg(P, sender):
-        print('processing proposal', P.high_commit_qc, P.block.qc)
         if syncmanager.need_sync(P.high_commit_qc, P.block.qc, P, sender):
             return
         process_certificate_qc(P.block.qc)
@@ -212,6 +212,8 @@ class Replica(process):
     def process_new_round_event(last_tc):
         if to_str() == leaderelection.get_leader(pacemaker.current_round):
             output('%s is now leader for current round %d' % (to_str(), pacemaker.current_round))
+            if last_tc:
+                output('\tround %d ended in timeout' % last_tc.round)
             logging.info(f'[{to_str()} is now the leader for current round {pacemaker.current_round}]')
             # TODO in rust implementation, blockstore has path_from_commit_root method
             # which returns list of uncommitted but proposed transactions from the last committed
@@ -226,6 +228,7 @@ class Replica(process):
                     transactions,
                     pacemaker.current_round
                 )
+                output('proposing txns:', transactions)
                 broadcast(('proposal', blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)))
             else:
                 output(to_str() + ' has no reason to generate proposal')
