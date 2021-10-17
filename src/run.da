@@ -89,17 +89,17 @@ class Run(process):
         for workload in workloads:
             for c in range(workload.num_clients):
                 setup(clients[i], (
-                replicas,
-                self,
-                workload,
-                public_keys,
-                private_keys['client' + str(i)],
-                i,
-                random.random(),
-                num_faulty,
-                test_case
-            ))
-            i += 1
+                    replicas,
+                    self,
+                    workload,
+                    public_keys,
+                    private_keys['client' + str(i)],
+                    i,
+                    random.random(),
+                    num_faulty,
+                    test_case
+                ))
+                i += 1
         start(replicas + clients)
         await(each(c in clients, has=received(('done',), from_=c)))
         output('All clients finished sending requests')
