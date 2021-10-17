@@ -109,7 +109,7 @@ def commit(block_id):
 def committed_block(block_id):
     return committed_blocks.get(block_id)
 
-# return path from block_id to most recent committed block
+# return path from block whose QC references block_id to most recent committed block
 def get_commit_chain(block_id):
     if block_id == None:
         # return the entire chain
@@ -117,7 +117,7 @@ def get_commit_chain(block_id):
     if not committed_block(block_id):
         return []
     block_ids = list(committed_blocks.keys())
-    i = block_ids.index(block_id)
+    i = block_ids.index(block_id) + 1
     chain = []
     while i < len(committed_blocks):
         chain.append(committed_blocks[block_ids[i]])
