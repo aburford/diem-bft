@@ -81,6 +81,5 @@ class Client(process):
             elif timeout(workload.timeout):
                 #output('failed to commit all transactions after %d seconds' % workload.timeout)
                 logger.info(f'[failed to commit all transactions after {workload.timeout} seconds]')
-        #output('done sending commands')
         logger.info("[done sending commands]")
         send(('done',), to=runner)

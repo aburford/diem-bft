@@ -28,6 +28,8 @@ class Run(process):
         self.logger = createLogger(__name__, f"log/{test_case}_run.log",formatter)
 
         logger.info(f'using random seed: {self.seed}')
+        logger.debug("debug hello world")
+        logger.info("info hello world")
 
 
     def run():
