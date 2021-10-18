@@ -1,0 +1,71 @@
+# replica0 receives no messages from round 6 through 9
+# it then syncs up with the other replicas when it sees the proposal for round 10
+# it is also possible that replica0 is the leader for some of these rounds so nothing gets committed and it doesn't have to sync up
+from config import *
+config = Config(
+    num_replicas = 4,
+    num_faulty = 1,
+    workloads = [
+        Workload(
+            type = WorkloadType.flood,
+            count = 4*12,
+            num_clients = 1,
+            timeout = 20
+        )
+    ],
+    transmission_delay_bound = .25,
+    seed = 0,
+)
+failure_config = FailureConfig(
+    failures = [
+        Failure(
+            src = '_',
+            dest = 'replica0',
+            msg_type = MsgType.Proposal,
+            round = range(6, 10),
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = 'replica0',
+            dest = '_',
+            msg_type = MsgType.Proposal,
+            round = range(6, 10),
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = '_',
+            dest = 'replica0',
+            msg_type = MsgType.TimeOut,
+            round = range(6, 10),
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = 'replica0',
+            dest = '_',
+            msg_type = MsgType.TimeOut,
+            round = range(6, 10),
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = '_',
+            dest = 'replica0',
+            msg_type = MsgType.Vote,
+            round = range(6, 10),
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        ),
+        Failure(
+            src = 'replica0',
+            dest = '_',
+            msg_type = MsgType.Vote,
+            round = range(6, 10),
+            prob = 1,
+            fail_type = FailType.MsgLoss
+        )
+    ],
+    seed = 0
+)
