@@ -25,17 +25,12 @@ class Run(process):
         else:
             self.seed = run_config.seed
         self.failure_config = failure_config
-        output('using random seed: %d' % self.seed)
         logging.basicConfig(filename = f"log/{test_case}_run.log",level=logging.INFO,
             format='%(asctime)s:%(message)s',filemode='w')
         logging.info(f'using random seed: {self.seed}')
 
     def run():
         num_clients = sum([wkld.num_clients for wkld in self.workloads])
-        output(
-            'Starting run with %d replicas, %d faulty replicas, and %d clients' % \
-            (num_replicas, num_faulty, num_clients)
-        )
         logging.info(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas, and{num_clients} clients')
         replicas = list(new(ReplicaFI, num=num_replicas))
         clients = list(new(Client, num=num_clients))
@@ -67,7 +62,6 @@ class Run(process):
         # so override __str__ to return unique index
         # jk distalgo doesn't allow that, use to_str()
         for i, replica in enumerate(replicas):
-            output('setting up replicafi', replica)
             logging.info(f'[setting up replicafi {replica}]')
             setup(
                 replica, (
