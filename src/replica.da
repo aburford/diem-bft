@@ -71,6 +71,14 @@ class Replica(process):
             total replicas are: {replicas}\n\
             transmission delay bound is: {transmission_delay_bound}")
         
+    def setattr(attr, val):
+        if attr == 'last_vote_round':
+            safety.last_vote_round = val
+        elif attr == 'current_round':
+            pacemaker.current_round = val
+        elif attr == 'leader':
+            leaderelection.reputation_leaders[pacemaker.current_round + 1] = val
+
     def multicast(msg, to):
         if isinstance(to, set):
             for dst in to:
