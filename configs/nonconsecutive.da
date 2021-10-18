@@ -4,10 +4,11 @@ config = Config(
     num_faulty = 1,
     workloads = [
         Workload(
-            type = WorkloadType.flood,
-            count = 4*15,
+            type = WorkloadType.timed,
+            count = 10,
             num_clients = 2,
-            timeout = 30
+            timeout = 30,
+            delays = [4, 7, 7, 7, 4, 7, 7, 3, 3]
         )
     ],
     transmission_delay_bound = 1,
@@ -24,6 +25,15 @@ failure_config = FailureConfig(
             fail_type = FailType.SetAttr,
             attr = 'leader',
             val = 'replica0'
+        ),
+        Failure(
+            src = 'replica0',
+            dest = 'replica0',
+            msg_type = MsgType.Wildcard,
+            round = range(5, 15),
+            prob = 1,
+            fail_type = FailType.SetAttr,
+            attr = 'duplicate_transactions'
         )
     ],
     seed = 0

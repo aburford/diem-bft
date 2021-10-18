@@ -111,9 +111,10 @@ class Run(process):
 def main():
     config(channel = 'reliable')
     test_cases = []
-    #test_case_names = ["syncup", "two_clients"]
-    #test_case_names = ["syncup_entire_chain"]
-    test_case_names = ["syncup_middle_of_chain"]
+    if len(sys.argv) > 1:
+        test_case_names = sys.argv[1:]
+    else:
+        test_case_names = map(lambda s: s[:-3], filter(lambda s: '.da' in s, os.listdir('configs')))
     for test_case_name in test_case_names:
         test_module = importlib.import_module("configs." + test_case_name)
         test_cases.append((
