@@ -13,7 +13,7 @@ class Client(process):
         # output('configured with %s workload for %d requests' % (workload.type.name, workload.count))
         formatter ='[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s'
         self.logger = createLogger(__name__,f"log/{testcase_name}_{to_str()}.log",formatter)
-        logger.info('configured with %s workload for %d requests' % (workload.type.name, workload.count))
+        logger.debug('configured with %s workload for %d requests' % (workload.type.name, workload.count))
         safety.public_keys = public_keys
         safety.private_key = private_key
         random.seed(seed)
@@ -40,7 +40,7 @@ class Client(process):
         #       has been submitted to the ledger
 
         #output('started running')
-        logger.info('[start running]')
+        logger.debug('[start running]')
         if workload.type == WorkloadType.retransmit:
             # send requests
             duration = 1
@@ -54,7 +54,7 @@ class Client(process):
                         committed = True
                     elif timeout(duration):
                         #output('timed out requesting commit for txn:', txn)
-                        logger.info(f'[timed out requesting commit for transaction]:{txn}')
+                        logger.debug(f'[timed out requesting commit for transaction]:{txn}')
                         duration *= 2
                 duration /= 2
         elif workload.type == WorkloadType.flood:
@@ -64,10 +64,10 @@ class Client(process):
             if await(each(sent(('request', txn, _)), has=len(setof(sender, received(('committed', _txn, _), from_=sender))) > num_faulty)):
                 output('all txns committed:')
                 output(setof(txn, sent(('request', txn, _))))
-                logger.info('[all transacations commmited]')
+                logger.debug('[all transacations commmited]')
             elif timeout(workload.timeout):
                 #output('failed to commit all transactions after %d seconds' % workload.timeout)
-                logger.info(f'[failed to commit all transactions after {workload.timeout} seconds]')
+                logger.debug(f'[failed to commit all transactions after {workload.timeout} seconds]')
         elif workload.type == WorkloadType.timed:
             assert workload.count - 1 == len(workload.delays)
             workload.delays.append(0)
@@ -77,9 +77,9 @@ class Client(process):
                 sleep(workload.delays[i])
             if await(each(sent(('request', txn, _)), has=len(setof(sender, received(('committed', _txn, _), from_=sender))) > num_faulty)):
                 output('all txns committed')
-                logger.info("[all transactions committed]")
+                logger.debug("[all transactions committed]")
             elif timeout(workload.timeout):
                 #output('failed to commit all transactions after %d seconds' % workload.timeout)
-                logger.info(f'[failed to commit all transactions after {workload.timeout} seconds]')
-        logger.info("[done sending commands]")
+                logger.debug(f'[failed to commit all transactions after {workload.timeout} seconds]')
+        logger.debug("[done sending commands]")
         send(('done',), to=runner)

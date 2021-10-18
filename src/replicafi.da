@@ -70,4 +70,4 @@ class ReplicaFI(process, Replica):
             super().send(m, to)
         else:
             output('LOST %s MESSAGE from %s to %s during round %d' % (msg_type, u, server_ids[to], pacemaker.current_round))
-            logger.info('LOST %s MESSAGE from %s to %s during round %d' % (msg_type, u, server_ids[to], pacemaker.current_round))
+            logger.debug('LOST %s MESSAGE from %s to %s during round %d' % (msg_type, u, server_ids[to], pacemaker.current_round))
