@@ -10,7 +10,7 @@ transmission_delay_bound = 0
 broadcast = None
 # |Function get round timer(r)
 # └ return round timer formula 
-logging = None
+logger = None
 def get_round_timer(r):
     return timers[r]
 
@@ -49,8 +49,8 @@ def local_timeout_round():
         broadcast(('timeout', timeout_msg))
         syncmanager.timeout()
         start_timer(current_round)
-        logging.info(f"[Timeout with timeout message]\n\
-             [{timeout_msg}]")
+        logger.info(f"[Timeout with timeout message]\n\
+                      [{timeout_msg}]")
 
 # Function process remote timeout(tmo)
 # tmo info ← tmo.tmo info
@@ -110,7 +110,7 @@ def advance_round_tc(tc):
         return False
     last_round_tc = tc
     start_timer(tc.round + 1)
-    logging.info(f"[advances round {current_round} using TC]")
+    logger.info(f"[advances round {current_round} using TC]")
     return True
 
 # Function advance round qc(qc)
@@ -126,5 +126,5 @@ def advance_round_qc(qc_round):
         return False
     last_round_tc = None
     start_timer(qc_round + 1)
-    logging.info(f"[advances round {current_round} using QC]")
+    logger.info(f"[advances round {current_round} using QC]")
     return True

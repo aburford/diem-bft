@@ -5,13 +5,12 @@ import leaderelection
 import random
 from nacl.signing import SigningKey
 import sys
-import logging
+from config import *
+from logger import createLogger
 import os
 import importlib
 from config import *
 
-if not(os.path.isdir("log")):
-    os.mkdir("log")
 
 class Run(process):
     def setup(test_case, run_config, failure_config):
@@ -25,18 +24,15 @@ class Run(process):
         else:
             self.seed = run_config.seed
         self.failure_config = failure_config
-        output('using random seed: %d' % self.seed)
-        logging.basicConfig(filename = f"log/{test_case}_run.log",level=logging.INFO,
-            format='%(asctime)s:%(message)s',filemode='w')
-        logging.info(f'using random seed: {self.seed}')
+        formatter ='%(asctime)s:%(message)s'
+        self.logger = createLogger(__name__, f"log/{test_case}_run.log",formatter)
+
+        logger.info(f'using random seed: {self.seed}')
+
 
     def run():
         num_clients = sum([wkld.num_clients for wkld in self.workloads])
-        output(
-            'Starting run with %d replicas, %d faulty replicas, and %d clients' % \
-            (num_replicas, num_faulty, num_clients)
-        )
-        logging.info(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas, and{num_clients} clients')
+        logger.info(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas, and {num_clients} clients')
         replicas = list(new(ReplicaFI, num=num_replicas))
         clients = list(new(Client, num=num_clients))
         random.seed(seed)
@@ -67,8 +63,7 @@ class Run(process):
         # so override __str__ to return unique index
         # jk distalgo doesn't allow that, use to_str()
         for i, replica in enumerate(replicas):
-            output('setting up replicafi', replica)
-            logging.info(f'[setting up replicafi {replica}]')
+            logger.info(f'[setting up replicafi {replica}]')
             setup(
                 replica, (
                     failure_config,
@@ -103,8 +98,8 @@ class Run(process):
                 i += 1
         start(replicas + clients)
         await(each(c in clients, has=received(('done',), from_=c)))
-        output('All clients finished sending requests')
-        logging.info('[All clients finished sending requests]')
+        # output('All clients finished sending requests')
+        logger.info('[All clients finished sending requests]')
         send(('done',), to=replicas)
 
 
@@ -122,6 +117,11 @@ def main():
             test_module.config,
             test_module.failure_config
         ))
+
+    if not(os.path.isdir("log")):
+        os.mkdir("log")
+
+    #logging.basicConfig(level=logging.INFO, filemode='w')
     # logger = logging.getLogger('setup')
     # logger.info('About to create replicas ...')
     #logging.config.dictConfig(configs[0])

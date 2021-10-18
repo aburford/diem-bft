@@ -5,12 +5,12 @@ config = Config(
     workloads = [
         Workload(
             type = WorkloadType.flood,
-            count = 4*15,
+            count = 4*12,
             num_clients = 1,
             timeout = 40
         )
     ],
-    transmission_delay_bound = .5,
+    transmission_delay_bound = .25,
     seed = 0,
 )
 failure_config = FailureConfig(

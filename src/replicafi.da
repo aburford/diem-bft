@@ -5,7 +5,6 @@ import random
 import safety
 from config import *
 from time import sleep
-import logging
 
 class ReplicaFI(process, Replica):
     def setup(
@@ -35,12 +34,9 @@ class ReplicaFI(process, Replica):
             seed,
             server_ids,
             num_faulty,
-            testcase_name,
-            isFI = True
+            testcase_name
         )
         random.seed(failure_config.seed)
-        logging.basicConfig(filename = f"log/{testcase_name}_replicafi{id}.log",level=logging.INFO,
-            format='[%(asctime)s] - [%(message)s]',filemode='w')
 
     def send(m, to):
         prob_success = 1
@@ -74,4 +70,4 @@ class ReplicaFI(process, Replica):
             super().send(m, to)
         else:
             output('LOST %s MESSAGE from %s to %s during round %d' % (msg_type, u, server_ids[to], pacemaker.current_round))
-            logging.info('LOST MESSAGE')
+            logger.info('LOST %s MESSAGE from %s to %s during round %d' % (msg_type, u, server_ids[to], pacemaker.current_round))
