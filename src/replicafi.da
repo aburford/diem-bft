@@ -70,7 +70,7 @@ class ReplicaFI(process, Replica):
                 elif failure.attr == 'current_round':
                     pacemaker.current_round = failure.val
                 elif failure.attr == 'leader':
-                    leaderelection.reputation_leaders[pacemaker.current_round] = failure.val
+                    leaderelection.reputation_leaders[pacemaker.current_round + 1] = failure.val
         # we could delay even if message fails to send
         # it's left unclear in assignment document
         if random.random() < prob_success:

@@ -24,15 +24,6 @@ failure_config = FailureConfig(
             fail_type = FailType.SetAttr,
             attr = 'leader',
             val = 'replica0'
-        ),
-        Failure(
-            src = 'replica0',
-            dest = 'replica0',
-            msg_type = MsgType.Wildcard,
-            round = range(5, 15),
-            prob = 1,
-            fail_type = FailType.SetAttr,
-            attr = 'duplicate_transactions'
         )
     ],
     seed = 0

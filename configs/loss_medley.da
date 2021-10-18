@@ -1,0 +1,76 @@
+from config import *
+config = Config(
+    num_replicas = 4,
+    num_faulty = 1,
+    workloads = [
+        Workload(
+            type = WorkloadType.flood,
+            count = 15,
+            num_clients = 2,
+            timeout = 30
+        )
+    ],
+    transmission_delay_bound = .2,
+    seed = 0,
+)
+failure_config = FailureConfig(
+    failures = [
+        Failure(
+            src = 'leader',
+            dest = '_',
+            msg_type = MsgType.Wildcard,
+            round = range(0, 1),
+            prob = 1,
+            fail_type = FailType.MsgLoss,
+        ),
+        Failure(
+            src = 'replica0',
+            dest = '_',
+            msg_type = MsgType.TimeOut,
+            round = range(1, 2),
+            prob = 1,
+            fail_type = FailType.MsgLoss,
+        ),
+        Failure(
+            src = '_',
+            dest = 'replica1',
+            msg_type = MsgType.TimeOut,
+            round = range(1, 2),
+            prob = 1,
+            fail_type = FailType.MsgLoss,
+        ),
+        Failure(
+            src = '_',
+            dest = 'leader',
+            msg_type = MsgType.Vote,
+            round = range(2, 3),
+            prob = 1,
+            fail_type = FailType.MsgLoss,
+        ),
+        Failure(
+            src = '_',
+            dest = 'leader',
+            msg_type = MsgType.Vote,
+            round = range(5, 6),
+            prob = 1,
+            fail_type = FailType.MsgLoss,
+        ),
+        Failure(
+            src = 'leader',
+            dest = '_',
+            msg_type = MsgType.Proposal,
+            round = range(6, 7),
+            prob = 1,
+            fail_type = FailType.MsgLoss,
+        ),
+        Failure(
+            src = '_',
+            dest = '_',
+            msg_type = MsgType.TimeOut,
+            round = range(6, 7),
+            prob = .7,
+            fail_type = FailType.MsgLoss,
+        ),
+    ],
+    seed = 0
+)
