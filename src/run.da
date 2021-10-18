@@ -100,7 +100,7 @@ class Run(process):
                 i += 1
         start(replicas + clients)
         await(each(c in clients, has=received(('done',), from_=c)))
-        # output('All clients finished sending requests')
+        # logger.info('All clients finished sending requests')
         logger.debug('[All clients finished sending requests]')
         send(('done',), to=replicas)
 
