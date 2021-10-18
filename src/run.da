@@ -27,12 +27,14 @@ class Run(process):
         formatter ='%(asctime)s:%(message)s'
         self.logger = createLogger(__name__, f"log/{test_case}_run.log",formatter)
 
-        logger.info(f'using random seed: {self.seed}')
+        logger.debug(f'using random seed: {self.seed}')
+        logger.debug("debug hello world")
+        logger.debug("info hello world")
 
 
     def run():
         num_clients = sum([wkld.num_clients for wkld in self.workloads])
-        logger.info(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas, and {num_clients} clients')
+        logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas, and {num_clients} clients')
         replicas = list(new(ReplicaFI, num=num_replicas))
         clients = list(new(Client, num=num_clients))
         random.seed(seed)
@@ -63,7 +65,7 @@ class Run(process):
         # so override __str__ to return unique index
         # jk distalgo doesn't allow that, use to_str()
         for i, replica in enumerate(replicas):
-            logger.info(f'[setting up replicafi {replica}]')
+            logger.debug(f'[setting up replicafi {replica}]')
             setup(
                 replica, (
                     failure_config,
@@ -98,8 +100,8 @@ class Run(process):
                 i += 1
         start(replicas + clients)
         await(each(c in clients, has=received(('done',), from_=c)))
-        # output('All clients finished sending requests')
-        logger.info('[All clients finished sending requests]')
+        # logger.info('All clients finished sending requests')
+        logger.debug('[All clients finished sending requests]')
         send(('done',), to=replicas)
 
 
@@ -123,7 +125,7 @@ def main():
 
     #logging.basicConfig(level=logging.INFO, filemode='w')
     # logger = logging.getLogger('setup')
-    # logger.info('About to create replicas ...')
+    # logger.debug('About to create replicas ...')
     #logging.config.dictConfig(configs[0])
     print('read configs:', [test_case[1] for test_case in test_cases])
     for test_case, config, failure_config in test_cases:

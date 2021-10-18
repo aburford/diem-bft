@@ -10,10 +10,10 @@ class Client(process):
     def setup(replicas:set, runner, workload, public_keys, private_key, id, seed, num_faulty, testcase_name):
         # logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
         #         format='[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w')
-        # output('configured with %s workload for %d requests' % (workload.type.name, workload.count))
+        # logger.info('configured with %s workload for %d requests' % (workload.type.name, workload.count))
         formatter ='[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s'
         self.logger = createLogger(__name__,f"log/{testcase_name}_{to_str()}.log",formatter)
-        logger.info('configured with %s workload for %d requests' % (workload.type.name, workload.count))
+        logger.debug('configured with %s workload for %d requests' % (workload.type.name, workload.count))
         safety.public_keys = public_keys
         safety.private_key = private_key
         random.seed(seed)
@@ -39,8 +39,8 @@ class Client(process):
         # 3. client should be able to determine when a submitted request
         #       has been submitted to the ledger
 
-        #output('started running')
-        logger.info('[start running]')
+        #logger.info('started running')
+        logger.debug('[start running]')
         if workload.type == WorkloadType.retransmit:
             # send requests
             duration = 1
@@ -53,8 +53,8 @@ class Client(process):
                         # TODO check commit_state_id signature
                         committed = True
                     elif timeout(duration):
-                        #output('timed out requesting commit for txn:', txn)
-                        logger.info(f'[timed out requesting commit for transaction]:{txn}')
+                        #logger.info('timed out requesting commit for txn:', txn)
+                        logger.debug(f'[timed out requesting commit for transaction]:{txn}')
                         duration *= 2
                 duration /= 2
         elif workload.type == WorkloadType.flood:
@@ -62,12 +62,12 @@ class Client(process):
                 uuid = '%xu' % random.getrandbits(16*8)
                 send_request(i, uuid)
             if await(each(sent(('request', txn, _)), has=len(setof(sender, received(('committed', _txn, _), from_=sender))) > num_faulty)):
-                output('all txns committed:')
-                output(setof(txn, sent(('request', txn, _))))
-                logger.info('[all transacations commmited]')
+                logger.info('all txns committed:')
+                logger.info(setof(txn, sent(('request', txn, _))))
+                logger.debug('[all transacations commmited]')
             elif timeout(workload.timeout):
-                #output('failed to commit all transactions after %d seconds' % workload.timeout)
-                logger.info(f'[failed to commit all transactions after {workload.timeout} seconds]')
+                #logger.info('failed to commit all transactions after %d seconds' % workload.timeout)
+                logger.debug(f'[failed to commit all transactions after {workload.timeout} seconds]')
         elif workload.type == WorkloadType.timed:
             assert workload.count - 1 == len(workload.delays)
             workload.delays.append(0)
@@ -76,11 +76,10 @@ class Client(process):
                 send_request(i, uuid)
                 sleep(workload.delays[i])
             if await(each(sent(('request', txn, _)), has=len(setof(sender, received(('committed', _txn, _), from_=sender))) > num_faulty)):
-                output('all txns committed')
-                logger.info("[all transactions committed]")
+                logger.info('all txns committed')
+                logger.debug("[all transactions committed]")
             elif timeout(workload.timeout):
-                #output('failed to commit all transactions after %d seconds' % workload.timeout)
-                logger.info(f'[failed to commit all transactions after {workload.timeout} seconds]')
-        #output('done sending commands')
-        logger.info("[done sending commands]")
+                #logger.info('failed to commit all transactions after %d seconds' % workload.timeout)
+                logger.debug(f'[failed to commit all transactions after {workload.timeout} seconds]')
+        logger.debug("[done sending commands]")
         send(('done',), to=runner)

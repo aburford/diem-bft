@@ -6,10 +6,12 @@ def createLogger(name, file_name,formatter):
     logger.setLevel(logging.DEBUG)
 
     file_handler = logging.FileHandler(file_name, mode='w')
-    file_handler.setLevel(logging.INFO)    
+    file_handler.setLevel(logging.DEBUG)    
     file_handler.setFormatter(logging.Formatter(formatter))
 
     console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)    
+    file_handler.setFormatter(logging.Formatter(formatter))
 
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)

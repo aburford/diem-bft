@@ -66,7 +66,7 @@ class Replica(process):
         ledger.logger = self.logger
         safety.logger = self.logger
 
-        logger.info(f"[Initial settings for current replica]: \n\
+        logger.debug(f"[Initial settings for current replica]: \n\
         public keys are: {public_keys}\n\
         private key is: {private_key}\n\
         random seed is: {seed}\n\
@@ -90,7 +90,7 @@ class Replica(process):
         if isinstance(to, str):
             to = self.id_to_server[to]
         send(msg, to=to)
-        logger.info(f"[send '{msg[0]}' message] to [{to}] \n\
+        logger.debug(f"[send '{msg[0]}' message] to [{to}] \n\
             content={msg}")
     
     # __str__ doesn't seem to work with DistAlgo...
@@ -100,8 +100,7 @@ class Replica(process):
     # loop: wait for next event M ; Main.start_event_processing(M)
     # if M is a local timeout then Pacemaker.local_timeout_round()
     def run():
-        #output('started running')
-        logger.info("[started running]")
+        logger.debug("[started running]")
         process_new_round_event(None)
         pacemaker.start_timer(0)
         while True:
@@ -113,7 +112,6 @@ class Replica(process):
                 if not(paused):
                     pacemaker.local_timeout_round()
         ledger.close_ledger()
-        output('finished running')
         logger.info("[finished running]")
     
     # Procedure start event processing(M)
@@ -127,22 +125,22 @@ class Replica(process):
     def handle_msg(M, sender):
         msg_type = M[0]
         sender_desc = server_ids[sender] if sender in server_ids else 'Runner'
-        logger.info(f"[received '{M[0]}' message] from: [{sender}] \n\
+        logger.debug(f"[received '{M[0]}' message] from: [{sender}] \n\
             content = [{M}]")
         if msg_type == 'proposal':
-            output('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].block.round))
+            logger.info('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].block.round))
             process_proposal_msg(M[1], sender)
         elif msg_type == 'vote':
-            output('%s received %s message from %s for round %d because it is leader for round %d' % (to_str(), M[0], server_ids[sender], M[1].vote_info.round, M[1].vote_info.round + 1))
+            logger.info('%s received %s message from %s for round %d because it is leader for round %d' % (to_str(), M[0], server_ids[sender], M[1].vote_info.round, M[1].vote_info.round + 1))
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
-            #output('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], server_ids[sender], M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
+            #logger.info('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], server_ids[sender], M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
             process_timeout_msg(M[1], sender)
         elif msg_type == 'sync_request':
-            output('%s received %s message from %s' % (to_str(), M[0], server_ids[sender]))
+            logger.info('%s received %s message from %s' % (to_str(), M[0], server_ids[sender]))
             syncmanager.process_sync_request(M[1], sender)
         elif msg_type == 'sync_response':
-            output('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], server_ids[sender], M[1].high_qc_path[-1].round))
+            logger.info('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], server_ids[sender], M[1].high_qc_path[-1].round))
             syncmanager.process_sync_response(M[1], sender)
         elif msg_type == 'request' and sender in clients:
             # process request from client
@@ -158,8 +156,8 @@ class Replica(process):
             commit_state_id = mempool.check_transaction(txn, sender)
             if commit_state_id:
                 # duplicate request, reply to client
-                #output('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
-                logger.info('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
+                #logger.info('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
+                logger.debug('sending reply to client %s: %s' % (('committed', txn, commit_state_id), sender))
                 multicast(('committed', txn, commit_state_id), to=sender)
     
     # Procedure process_certificate_qc(qc)
@@ -232,10 +230,10 @@ class Replica(process):
 
     def process_new_round_event(last_tc):
         if to_str() == leaderelection.get_leader(pacemaker.current_round):
-            output('%s is now leader for current round %d' % (to_str(), pacemaker.current_round))
+            logger.info('%s is now leader for current round %d' % (to_str(), pacemaker.current_round))
             if last_tc:
-                output('\tround %d ended in timeout' % last_tc.round)
-            logger.info(f'[{to_str()} is now the leader for current round {pacemaker.current_round}]')
+                logger.info('\tround %d ended in timeout' % last_tc.round)
+            logger.debug(f'[{to_str()} is now the leader for current round {pacemaker.current_round}]')
             # TODO in rust implementation, blockstore has path_from_commit_root method
             # which returns list of uncommitted but proposed transactions from the last committed
             # block to the currently proposed block (i think?)
@@ -249,11 +247,10 @@ class Replica(process):
                     transactions,
                     pacemaker.current_round
                 )
-                output('proposing txns:', transactions)
                 msg = blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)
                 broadcast(('proposal', msg))
             else:
-                output(to_str() + ' has no reason to generate proposal')
+                logger.info(to_str() + ' has no reason to generate proposal')
 
     def broadcast(msg):
         multicast(msg, to=replica_ids)
