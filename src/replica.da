@@ -122,10 +122,10 @@ class Replica(process):
             output('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].block.round))
             process_proposal_msg(M[1], sender)
         elif msg_type == 'vote':
-            output('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].vote_info.round))
+            output('%s received %s message from %s for round %d because it is leader for round %d' % (to_str(), M[0], server_ids[sender], M[1].vote_info.round, M[1].vote_info.round + 1))
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
-            output('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], server_ids[sender], M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
+            #output('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], server_ids[sender], M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
             process_timeout_msg(M[1], sender)
         elif msg_type == 'sync_request':
             output('%s received %s message from %s' % (to_str(), M[0], server_ids[sender]))
@@ -180,7 +180,6 @@ class Replica(process):
     # └ └ send vote_msg to LeaderElection.get_leader(current_round + 1)
     def process_proposal_msg(P, sender):
         if syncmanager.need_sync(P.high_commit_qc, P.block.qc, ('proposal', P), sender):
-            # TODO should prob still call advance_round_tc
             pacemaker.advance_round_tc(P.last_round_tc)
             return
         process_certificate_qc(P.block.qc)
@@ -213,6 +212,7 @@ class Replica(process):
         # TODO technically if we are missing the block voted on in the previous round we need to request that with a sync request
         # but that's a new case cause there's no QC for that block yet...
         if syncmanager.need_vote_sync(M.high_commit_qc, M.vote_info, M, sender):
+            print('%s ignoring vote because not synced' % u)
             return
         qc = blocktree.process_vote(M)
         if qc:

@@ -108,8 +108,6 @@ def advance_round_tc(tc):
     global last_round_tc
     if tc == None or  tc.round < current_round: 
         return False
-    print('TC advancing from %d to %d' % (current_round, tc.round + 1))
-    print('TC quorum:', [sender for sender, _ in tc.tmo_signatures])
     last_round_tc = tc
     start_timer(tc.round + 1)
     logging.info(f"[advances round {current_round} using TC]")
