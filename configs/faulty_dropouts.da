@@ -7,7 +7,7 @@ config = Config(
             type = WorkloadType.flood,
             count = 4*12,
             num_clients = 1,
-            timeout = 20
+            timeout = 40
         )
     ],
     transmission_delay_bound = .25,
@@ -18,99 +18,35 @@ failure_config = FailureConfig(
         Failure(
             src = '_',
             dest = 'replica0',
-            msg_type = MsgType.Proposal,
-            round = range(5, 7),
+            msg_type = MsgType.Wildcard,
+            round = range(2,7),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
         Failure(
             src = 'replica0',
             dest = '_',
-            msg_type = MsgType.Proposal,
-            round = range(5, 7),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica0',
-            msg_type = MsgType.TimeOut,
-            round = range(5, 7),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica0',
-            dest = '_',
-            msg_type = MsgType.TimeOut,
-            round = range(5, 7),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica0',
-            msg_type = MsgType.Vote,
-            round = range(5, 7),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica0',
-            dest = '_',
-            msg_type = MsgType.Vote,
-            round = range(5, 7),
+            msg_type = MsgType.Wildcard,
+            round = range(2,7),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
         Failure(
             src = '_',
             dest = 'replica1',
-            msg_type = MsgType.Proposal,
-            round = range(7, 9),
+            msg_type = MsgType.Wildcard,
+            round = range(10,18),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
         Failure(
             src = 'replica1',
             dest = '_',
-            msg_type = MsgType.Proposal,
-            round = range(7, 9),
+            msg_type = MsgType.Wildcard,
+            round = range(10,18),
             prob = 1,
             fail_type = FailType.MsgLoss
         ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.TimeOut,
-            round = range(7, 9),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.TimeOut,
-            round = range(7, 9),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = '_',
-            dest = 'replica1',
-            msg_type = MsgType.Vote,
-            round = range(7, 9),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        ),
-        Failure(
-            src = 'replica1',
-            dest = '_',
-            msg_type = MsgType.Vote,
-            round = range(7, 9),
-            prob = 1,
-            fail_type = FailType.MsgLoss
-        )
     ],
     seed = 0
 )
