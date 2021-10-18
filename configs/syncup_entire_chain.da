@@ -1,6 +1,6 @@
 # replica0 receives no messages for the first 6 rounds
 # it then syncs up with the other replicas when it sees the proposal for round 7
-    # for some reason it performs 2 syncs instead of just one but after 2 it is caught up
+# sometimes it performs two syncs because the proposal messages arrive out of order
 from config import *
 config = Config(
     num_replicas = 4,

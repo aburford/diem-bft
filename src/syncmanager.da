@@ -47,7 +47,6 @@ def process_sync_request(sync_request, src):
     #print('high_qc', sync_request.high_qc, sync_request.high_qc.vote_info.id)
     #print(blocktree.pending_block_tree.id_to_block[sync_request.high_qc.vote_info.id].block.qc)
     if blocktree.pending_block_tree.contains(sync_request.high_qc.vote_info.id):
-        print('updating from sync_request')
         process_certificate_qc(sync_request.high_qc)
     block_id = sync_request.high_commit_qc.vote_info.parent_id if sync_request.high_commit_qc else None
     chain = ledger.get_commit_chain(block_id)
