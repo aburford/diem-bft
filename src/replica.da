@@ -75,6 +75,7 @@ class Replica(process):
 
         
     def setattr(attr, val):
+        logger.info('%s called setattr with attr %s and val %s' % (u, attr, str(val)))
         if attr == 'last_vote_round':
             safety.last_vote_round = val
         elif attr == 'current_round':
@@ -90,7 +91,8 @@ class Replica(process):
         if isinstance(to, str):
             to = self.id_to_server[to]
         send(msg, to=to)
-        logger.debug(f"[send '{msg[0]}' message] to [{to}] \n\
+        sender_desc = server_ids[to] if to in server_ids else 'Runner'
+        logger.debug(f"[send '{msg[0]}' message] to [{sender_desc}] \n\
             content={msg}")
     
     # __str__ doesn't seem to work with DistAlgo...
@@ -125,7 +127,7 @@ class Replica(process):
     def handle_msg(M, sender):
         msg_type = M[0]
         sender_desc = server_ids[sender] if sender in server_ids else 'Runner'
-        logger.debug(f"[received '{M[0]}' message] from: [{sender}] \n\
+        logger.debug(f"[received '{M[0]}' message] from: [{sender_desc}] \n\
             content = [{M}]")
         if msg_type == 'proposal':
             logger.info('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].block.round))
@@ -134,7 +136,7 @@ class Replica(process):
             logger.info('%s received %s message from %s for round %d because it is leader for round %d' % (to_str(), M[0], server_ids[sender], M[1].vote_info.round, M[1].vote_info.round + 1))
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
-            #logger.info('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], server_ids[sender], M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
+            logger.info('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], server_ids[sender], M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
             process_timeout_msg(M[1], sender)
         elif msg_type == 'sync_request':
             logger.info('%s received %s message from %s' % (to_str(), M[0], server_ids[sender]))

@@ -1,0 +1,44 @@
+from config import *
+config = Config(
+    num_replicas = 4,
+    num_faulty = 1,
+    workloads = [
+        Workload(
+            type = WorkloadType.flood,
+            count = 5, # each block can have up to four txns so in order to force 4 rounds, we have each of 3 clients send 5 transactions
+            num_clients = 3,
+            timeout = 30
+        )
+    ],
+    transmission_delay_bound = .25,
+    seed = 0,
+)
+# our replicas start at replica0
+# our round numbers start at zero
+#     however, the zeroth round always ends in a timeout
+#     because the leader has not received any transactions yet
+#     and there are not previous blocks pending a commit
+#     so they don't send a proposal
+# so we pretend our rounds start at round 1 so that "third round" corresponds with the third proposal message that is sent
+failure_config = FailureConfig(
+    failures = [
+        Failure(
+            src = '_',
+            dest = '_',
+            msg_type = MsgType.Proposal,
+            round = [3],
+            prob = 1,
+            fail_type = FailType.MsgLoss,
+        ),
+        Failure(
+            src = '_',
+            dest = '_',
+            msg_type = MsgType.TimeOut,
+            round = [3],
+            prob = 1,
+            fail_type = FailType.Delay,
+            val = 2
+        ),
+    ],
+    seed = 0
+)
