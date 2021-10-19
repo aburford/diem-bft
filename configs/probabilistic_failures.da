@@ -1,0 +1,28 @@
+from config import *
+config = Config(
+    num_replicas = 7,
+    num_faulty = 2,
+    workloads = [
+        Workload(
+            type = WorkloadType.flood,
+            count = 20,
+            num_clients = 3,
+            timeout = 30
+        )
+    ],
+    transmission_delay_bound = .2,
+    seed = 0,
+)
+failure_config = FailureConfig(
+    failures = [
+        Failure(
+            src = '_',
+            dest = '_',
+            msg_type = MsgType.Wildcard,
+            round = [2, 3, 5, 6, 8, 9],
+            prob = .15,
+            fail_type = FailType.MsgLoss,
+        )
+    ],
+    seed = 1234567
+)
