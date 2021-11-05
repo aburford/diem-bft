@@ -1,0 +1,116 @@
+from replica import Replica
+import pacemaker
+import leaderelection
+import random
+import safety
+from config import *
+from time import sleep
+
+class ReplicaTestExec(process, Replica):
+    def setup(
+        test_config,
+        transmission_delay_bound,
+        public_keys,
+        private_key,
+        ident,
+        seed,
+        process_to_id,
+        id_to_process,
+        num_faulty,
+        testcase_name
+    ):
+        super().setup(
+            test_config.replicas,
+            transmission_delay_bound,
+            public_keys,
+            private_key,
+            ident,
+            seed,
+            num_faulty,
+            testcase_name
+        )
+        replica_ids = test_config.replicas
+        twins = test_config.twins
+        u = process_to_id[self]
+        #random.seed(failure_config.seed)
+        partitions = {}
+        for rnd_num, rnd in enumerate(test_config.rounds):
+            parts = {}
+            for i, p in enumerate(rnd.partitions):
+                for r in p:
+                    parts[p] = i
+            partitions[rnd_num] = parts
+
+    def receive(msg=M, from_=sender):
+        sender = process_to_id[sender]
+        super().receive(M, sender)
+
+    def can_send(src, dst, r):
+        part = partitions[r]
+        if part[src] != part[dst]:
+            return False
+        for e in test_config.rounds[r].exceptions:
+            if src == e.src and dst == e.dst:
+                return False
+        return True
+
+    # DPI
+    def get_round(msg):
+        msg_type = msg[0]
+        if msg_type = 'proposal':
+            return msg[1].block.round
+        elif msg_type == 'vote':
+            return msg[1].vote_info.round
+        elif msg_type == 'timeout':
+            return msg[1].tmo_info.round
+        # TODO don't think we should be blocking these?
+        #elif msg_type == 'sync_request':
+        #elif msg_type == 'sync_response':
+
+    # to is always a identifier string (not a process)
+    def send(m, to):
+        r = get_round(m)
+        processes = id_to_process[to]
+        for p in processes:
+            if can_send(u, to, r):
+                super().send(m, p)
+
+
+        #prob_success = 1
+        #delay = 0
+        #msg_type = m[0]
+        #for failure in failure_config.failures:
+        #    if failure.msg_type != MsgType.Wildcard and failure.msg_type.value != msg_type:
+        #        continue
+        #    if pacemaker.current_round not in failure.round:
+        #        continue
+        #    if not (failure.src == u or failure.src == '_' or \
+        #            failure.src == 'leader' and \
+        #            u == leaderelection.get_leader(pacemaker.current_round)):
+        #        continue
+        #    if not (failure.dest == server_ids[to] or \
+        #            failure.dest == '_' or \
+        #            failure.dest == 'leader' and \
+        #            msg_type != 'vote' and \
+        #            server_ids[to] == leaderelection.get_leader(pacemaker.current_round) or \
+        #            failure.dest == 'leader' and \
+        #            msg_type == 'vote' and \
+        #            server_ids[to] == leaderelection.get_leader(pacemaker.current_round+1)):
+        #        continue
+        #    if failure.fail_type == FailType.MsgLoss:
+        #        prob_success *= (1 - failure.prob)
+        #    elif failure.fail_type == FailType.Delay and random.random() < failure.prob:
+        #        delay += failure.val
+        #    elif failure.fail_type == FailType.SetAttr and random.random() < failure.prob:
+        #        super().setattr(failure.attr, failure.val)
+        ## we could delay even if message fails to send
+        ## it's left unclear in assignment document
+        #if random.random() < prob_success:
+        #    # TODO would it make sense to have a yield point here?
+        #    if delay:
+        #        logger.info('DELAY %s MESSAGE from %s to %s during round %d' % (msg_type, u, server_ids[to], pacemaker.current_round))
+        #    sleep(delay)
+        #    super().send(m, to)
+        #else:
+        #    logger.info('LOST %s MESSAGE from %s to %s during round %d' % (msg_type, u, server_ids[to], pacemaker.current_round))
+        #    logger.debug('LOST %s MESSAGE from %s to %s during round %d' % (msg_type, u, server_ids[to], pacemaker.current_round))

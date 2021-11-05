@@ -13,17 +13,17 @@ from config import *
 
 
 class Run(process):
-    def setup(test_case, run_config, failure_config):
+    def setup(test_config):
         # Stoller recommends doing this for macOS where UDP max datagram size is too small so this forces TCP
-        self.num_replicas = run_config.num_replicas
-        self.num_faulty = run_config.num_faulty
-        self.workloads = run_config.workloads
-        self.transmission_delay_bound = run_config.transmission_delay_bound
-        if run_config.seed == None:
-            self.seed = random.randomint(0, sys.maxsize)
-        else:
-            self.seed = run_config.seed
-        self.failure_config = failure_config
+        self.num_replicas = len(test_config.replicas)
+        self.num_faulty = len(test_config.twins)
+        # TODO self.transmission_delay_bound = run_config.transmission_delay_bound
+        # TODO confirm there's nothing about seed numbers in phase3
+        #if run_config.seed == None:
+        #    self.seed = random.randomint(0, sys.maxsize)
+        #else:
+        #    self.seed = run_config.seed
+        self.test_config = test_config
         formatter ='%(asctime)s:%(message)s'
         self.logger = createLogger(__name__, f"log/{test_case}_run.log",formatter)
 
@@ -33,73 +33,73 @@ class Run(process):
 
 
     def run():
-        num_clients = sum([wkld.num_clients for wkld in self.workloads])
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas, and {num_clients} clients')
-        replicas = list(new(ReplicaFI, num=num_replicas))
-        clients = list(new(Client, num=num_clients))
-        random.seed(seed)
+        replicas = list(new(ReplicaTestExec, num=(num_replicas + num_faulty)))
+        #random.seed(seed)
         private_keys = {
-            'replica' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big'))
-            for i in range(num_replicas)
+            r: SigningKey(random.getrandbits(256).to_bytes(32, 'big'))
+            for r in test_config.replicas
         }
-        private_keys.update({
-            'client' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big'))
-            for i in range(num_clients)
-        })
+        #private_keys.update({
+        #    'client' + str(i): SigningKey(random.getrandbits(256).to_bytes(32, 'big'))
+        #    for i in range(num_clients)
+        #})
         public_keys = {
-            'replica' + str(i): private_keys['replica' + str(i)].verify_key
-            for i in range(num_replicas)
+            r: private_keys[r].verify_key
+            for r in test_config.replicas
         }
-        public_keys.update({
-            'client' + str(i): private_keys['client' + str(i)].verify_key
-            for i in range(num_clients)}
-        )
-        replica_ids = {'replica' + str(i) for i in range(num_replicas)}
-        client_ids = {'client' + str(i) for i in range(num_clients)}
-        server_ids = {replica: 'replica' + str(i) for i, replica in enumerate(replicas)}
-        server_ids.update({client: 'client' + str(i) for i, client in enumerate(clients)})
+        #public_keys.update({
+        #    'client' + str(i): private_keys['client' + str(i)].verify_key
+        #    for i in range(num_clients)}
+        #)
+        #client_ids = {'client' + str(i) for i in range(num_clients)}
+        process_to_id = {}
+        id_to_process = {}
+        for r, ident in zip(replicas, (test_config.replicas + test_config.twins)):
+            process_to_id[r] = ident
+            id_to_process.setdefault(ident, []).append(ident)
+        #server_ids = {replica: 'replica' + str(i) for i, replica in enumerate(replicas)}
+        #server_ids.update({client: 'client' + str(i) for i, client in enumerate(clients)})
         
 
         # we use str(replica) to get unique replica id's
         # but these are not reproducible
         # so override __str__ to return unique index
         # jk distalgo doesn't allow that, use to_str()
-        for i, replica in enumerate(replicas):
+        for replica in enumerate(replicas):
             logger.debug(f'[setting up replicafi {replica}]')
+            ident = process_to_id[replica]
             setup(
                 replica, (
-                    failure_config,
-                    replica_ids,
-                    client_ids,
-                    replicas,
-                    clients,
+                    test_config,
                     transmission_delay_bound,
                     public_keys,
-                    private_keys['replica' + str(i)],
-                    i,
+                    private_keys[ident],
+                    ident,
                     random.random(),
-                    server_ids,
+                    process_to_id,
+                    id_to_process,
                     num_faulty,
                     test_case
                 )
             )
         i = 0
-        for workload in workloads:
-            for c in range(workload.num_clients):
-                setup(clients[i], (
-                    replicas,
-                    self,
-                    workload,
-                    public_keys,
-                    private_keys['client' + str(i)],
-                    i,
-                    random.random(),
-                    num_faulty,
-                    test_case
-                ))
-                i += 1
-        start(replicas + clients)
-        await(each(c in clients, has=received(('done',), from_=c)))
+        #for workload in workloads:
+        #    for c in range(workload.num_clients):
+        #        setup(clients[i], (
+        #            replicas,
+        #            self,
+        #            workload,
+        #            public_keys,
+        #            private_keys['client' + str(i)],
+        #            i,
+        #            random.random(),
+        #            num_faulty,
+        #            test_case
+        #        ))
+        #        i += 1
+        start(replicas)
+        await(each(r in replicas, has=received(('done',), from_=)))
         # logger.info('All clients finished sending requests')
         logger.debug('[All clients finished sending requests]')
         send(('done',), to=replicas)
@@ -108,17 +108,18 @@ class Run(process):
 def main():
     config(channel = 'reliable')
     test_cases = []
-    if len(sys.argv) > 1:
-        test_case_names = sys.argv[1:]
-    else:
-        test_case_names = map(lambda s: s[:-3], filter(lambda s: '.da' in s, os.listdir('configs')))
-    for test_case_name in test_case_names:
-        test_module = importlib.import_module("configs." + test_case_name)
-        test_cases.append((
-            test_case_name,
-            test_module.config,
-            test_module.failure_config
-        ))
+    # TODO parse list of TestConfig from file generated by test generator
+    #if len(sys.argv) > 1:
+    #    test_case_names = sys.argv[1:]
+    #else:
+    #    test_case_names = map(lambda s: s[:-3], filter(lambda s: '.da' in s, os.listdir('configs')))
+    #for test_case_name in test_case_names:
+    #    test_module = importlib.import_module("configs." + test_case_name)
+    #    test_cases.append((
+    #        test_case_name,
+    #        test_module.config,
+    #        test_module.failure_config
+    #    ))
 
     if not(os.path.isdir("log")):
         os.mkdir("log")
@@ -128,6 +129,6 @@ def main():
     # logger.debug('About to create replicas ...')
     #logging.config.dictConfig(configs[0])
     print('read configs:', [test_case[1] for test_case in test_cases])
-    for test_case, config, failure_config in test_cases:
-        r = new(Run, (test_case, config, failure_config))
+    for test_config in test_cases:
+        r = new(Run, (test_config))
         start(r)

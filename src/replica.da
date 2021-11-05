@@ -15,15 +15,11 @@ from logger import createLogger
 class Replica(process):
     def setup(
         replica_ids,
-        client_ids,
-        replicas,
-        clients,
         transmission_delay_bound,
         public_keys,
         private_key,
-        id,
+        ident,
         seed,
-        server_ids,
         num_faulty,
         testcase_name
     ):
@@ -83,6 +79,7 @@ class Replica(process):
         elif attr == 'leader':
             leaderelection.reputation_leaders[pacemaker.current_round + 1] = val
 
+    # TODO: send should only be called with string identifiers
     def multicast(msg, to):
         if isinstance(to, set):
             for dst in to:
@@ -97,7 +94,7 @@ class Replica(process):
     
     # __str__ doesn't seem to work with DistAlgo...
     def to_str():
-        return 'replica' + str(id)
+        return ident
 
     # loop: wait for next event M ; Main.start_event_processing(M)
     # if M is a local timeout then Pacemaker.local_timeout_round()
