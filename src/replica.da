@@ -5,7 +5,7 @@ import blocktree
 import pacemaker
 from collections import deque
 import mempool
-import leaderelection
+import leaderelectiontestexec as leaderelection
 import safety
 import random
 import pickle
@@ -21,6 +21,7 @@ class Replica(process):
         ident,
         seed,
         num_faulty,
+        txns,
         testcase_name
     ):
         self.id_to_server = {server_ids[server]: server for server in server_ids.keys()}
@@ -43,6 +44,8 @@ class Replica(process):
         mempool.u = to_str()
         mempool.id_to_server = self.id_to_server
         mempool.multicast = multicast
+        for uuid, txn in txns:
+            mempool.requests[uuid] = txn
         ledger.u = to_str()
         random.seed(seed)
         syncmanager.u = to_str()

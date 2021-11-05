@@ -3,6 +3,7 @@ from replicafi import ReplicaFI
 from client import Client
 import leaderelection
 import random
+from uuid import uuid4
 from nacl.signing import SigningKey
 import sys
 from config import *
@@ -62,6 +63,11 @@ class Run(process):
         #server_ids.update({client: 'client' + str(i) for i, client in enumerate(clients)})
         
 
+        txns = []
+        alpabet = [chr(x) for x in range(97, 97+26)]
+        for _ in range(len(test_config.round * mempool.BLOCK_SIZE * 2)):
+            txn = [random.choice(alphabet) for _ in range(6)]
+            txns.append((uuid4().hex, ''.join(txn)))
         # we use str(replica) to get unique replica id's
         # but these are not reproducible
         # so override __str__ to return unique index
@@ -80,9 +86,11 @@ class Run(process):
                     process_to_id,
                     id_to_process,
                     num_faulty,
+                    txns.copy(),
                     test_case
                 )
             )
+            random.shuffle(txns)
         i = 0
         #for workload in workloads:
         #    for c in range(workload.num_clients):

@@ -1,6 +1,6 @@
 from replica import Replica
 import pacemaker
-import leaderelection
+import leaderelectiontestexec as leaderelection
 import random
 import safety
 from config import *
@@ -32,6 +32,7 @@ class ReplicaTestExec(process, Replica):
         replica_ids = test_config.replicas
         twins = test_config.twins
         u = process_to_id[self]
+        leaderelection.reputation_leaders = {i: r.leader for i, r in enumerate(test_config.rounds)}
         #random.seed(failure_config.seed)
         partitions = {}
         for rnd_num, rnd in enumerate(test_config.rounds):
