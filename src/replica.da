@@ -24,7 +24,6 @@ class Replica(process):
         txns,
         testcase_name
     ):
-        self.id_to_server = {server_ids[server]: server for server in server_ids.keys()}
         self.u = to_str()
         safety.public_keys = public_keys
         safety.private_key = private_key
@@ -42,7 +41,6 @@ class Replica(process):
         blocktree.u = to_str()
         blocktree.f = num_faulty
         mempool.u = to_str()
-        mempool.id_to_server = self.id_to_server
         mempool.multicast = multicast
         for uuid, txn in txns:
             mempool.requests[uuid] = txn
@@ -88,11 +86,8 @@ class Replica(process):
             for dst in to:
                 multicast(msg, to=dst)
             return
-        if isinstance(to, str):
-            to = self.id_to_server[to]
         send(msg, to=to)
-        sender_desc = server_ids[to] if to in server_ids else 'Runner'
-        logger.debug(f"[send '{msg[0]}' message] to [{sender_desc}] \n\
+        logger.debug(f"[send '{msg[0]}' message] to [{to}] \n\
             content={msg}")
     
     # __str__ doesn't seem to work with DistAlgo...
@@ -126,8 +121,7 @@ class Replica(process):
     # indirectly called so we can replay messages from syncmanager
     def handle_msg(M, sender):
         msg_type = M[0]
-        sender_desc = server_ids[sender] if sender in server_ids else 'Runner'
-        logger.debug(f"[received '{M[0]}' message] from: [{sender_desc}] \n\
+        logger.debug(f"[received '{M[0]}' message] from: [{sender}] \n\
             content = [{M}]")
         if msg_type == 'proposal':
             logger.info('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].block.round))
