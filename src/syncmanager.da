@@ -16,6 +16,7 @@ process_certificate_qc = None
 handle_msg = None
 server_ids = None
 
+# TODO how is round incremented if we catch up on rounds with timeouts in between?
 
 # return True if we need to sync up before processing this proposal
 def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):

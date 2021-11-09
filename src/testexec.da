@@ -11,6 +11,7 @@ from logger import createLogger
 import os
 import importlib
 from config import *
+from datetime import datetime
 
 
 class TestExec(process):
@@ -18,6 +19,8 @@ class TestExec(process):
         # Stoller recommends doing this for macOS where UDP max datagram size is too small so this forces TCP
         self.num_replicas = len(test_config.replicas)
         self.num_faulty = len(test_config.twins)
+        self.f = num_faulty
+        self.twins = [ident[0] for ident in test_config.twins]
         self.seed = test_config.seed
         self.transmission_delay_bound = test_config.transmission_delay_bound
         self.nrounds = len(test_config.rounds)
@@ -26,6 +29,8 @@ class TestExec(process):
         formatter ='%(asctime)s:%(message)s'
         self.logger = createLogger(__name__, f"log/{test_case}_run.log",formatter)
         self.replicas = list(new(ReplicaTestExec, num=(num_replicas + num_faulty)))
+        # used to verify property 4
+        self.first_to_enter = dict()
         random.seed(seed)
         private_keys = {
             r: SigningKey(random.getrandbits(256).to_bytes(32, 'big'))
@@ -76,13 +81,93 @@ class TestExec(process):
             )
             random.shuffle(txns)
         self.t= test_config.timeout
+    
+    # msg = (src/dst, (msg_type, content))
+
+    # return block ids
+    def blocks():
+        return setof(msg.block.id, received(msg), msg[1][0] == 'proposal')
+
+    # return (block_id, round, parent_id)
+    def blocklinks():
+        return setof((msg.block.id, msg.block.round, msg.block.qc.vote_info.id), received(msg), msg[1][0] == 'proposal')
+
+    # return replica ids of all votes for specific block in a round
+    # twins have same id
+    def voters(block, rnd):
+        return setof(msg[0][0], received(msg), msg[1][0] == 'vote' and msg[1][1].vote_info.id == block and msg[1][1].vote_info.round == rnd)
+
+    def cert_blocks(rnd):
+        return setof(block, block in blocks(), lenof(v, v in voters(block, rnd)) >= 2*f + 1)
+
+    def weak_cert_blocks(rnd):
+        return setof(block, block in blocks(), lenof(v, v in voters(block, rnd), v not in twins) >= f + 1)
+
+    def global_commit_voters(block, rnd):
+        return setof(msg[0][0], received(msg), msg[1][0] == 'vote' and msg[1][1].vote_info.parent_id == block and msg[1][1].vote_info.round == rnd)
+
+    def is_global_commit(block, rnd):
+        return lenof(v, v in global_commit_voters(block, rnd + 1), v not in twins) >= f + 1
+    
+    def get_global_commits():
+        return setof((link[0], link[2]), link in blocklinks(), is_global_commit(link[0], link[1]))
+
+    def safe_round(rnd):
+        each(cert_block in cert_blocks(rnd), has=not some(block in weak_cert_blocks(rnd), has=block != cert_block))
 
     def run():
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
         start(replicas)
         if await(each(r in replicas, has=sent(('done',), to=_r))):
             logger.debug('[all replicas reached desired round]')
-            # check offline liveness/safety properties
+            # property 1
+            if not each(rnd in range(nrounds), has=safe_round(rnd)):
+                print('Property 1 violated')
+            # property 2
+            global_commits = get_global_commits()
+            graph = {}
+            for block, parent in graph:
+                graph[parent] = block
+            chain = []
+            seen = set()
+            violated = False
+            block = None
+            while block in graph:
+                block = graph[block]
+                if block in seen:
+                    violated = True
+                    break
+                seen.add(block)
+                chain.append(block)
+            if violated or len(chain) != len(global_commits):
+                print('Property 2 violated')
+            # property 3
+            # TODO check commit logs to see what was locally committed
+
+            # property 4
+            violated = False
+            for rnd in range(gst, nrounds):
+                honest_leaders = True
+                for i in range(3):
+                    if leaders[rnd + i] in twins:
+                        honest_leaders = False
+                        break
+                if honest_leaders:
+                    time = first_to_enter[rnd]
+                    for ident in test_config.replicas:
+                        if ident in twins:
+                            continue
+                        # TODO get time stamp from log
+                        log_time = None
+                        if (log_time - time).total_seconds() > 7 * transmission_delay_bound:
+                            violated = True
+                            break
+                if violated:
+                    break
+             if violated:
+                print('Property 4 violated')
+
+
 
         elif timeout(t):
             logger.debug('[entire test case timeout]')
@@ -112,13 +197,15 @@ class TestExec(process):
     def receive(msg=M, from_=sender):
         dst, msg = M
         rnd = get_round(msg)
+        src = process_to_id[sender][0]
+        if src not in twins:
+            first_to_enter[rnd] = min(first_to_enter.get(rnd, datetime.max), datetime.now())
         if rnd == nrounds:
             done_msg = (('done',), 'executor')
             if not sent(done_msg, to=_sender):
                 send(done_msg, sender)
                 logger.debug(f'[{process_to_id[sender]} reached final round]')
             return
-        src = process_to_id[sender][0]
         receivers = id_to_process[dst]
         for receiver in receivers:
             if can_send(sender, receiver, rnd):
