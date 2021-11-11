@@ -1,6 +1,7 @@
 # global variables in imported modules remain separate
 # in different DistAlgo processes
 import ledger
+from datetime import datetime
 import blocktree
 import pacemaker
 from collections import deque
@@ -14,6 +15,7 @@ from logger import createLogger
 
 class Replica(process):
     def setup(
+        executor, # only passed in here so we can send committed log messages
         replica_ids,
         transmission_delay_bound,
         public_keys,
@@ -168,6 +170,11 @@ class Replica(process):
                     committed_payload,
                     commit_state_id
                 )
+                # tell TestExec that we have locally committed this block
+                block_id = qc.vote_info.parent_id
+                rnd = qc.vote_info.parent_round
+                if not sent(('committed', (_block_id, _, _))):
+                    send(('committed', (block_id, rnd, datetime.now())), to=executor)
             leaderelection.update_leaders(qc)
             pacemaker.advance_round_qc(qc.vote_info.round)
 

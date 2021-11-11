@@ -118,8 +118,11 @@ class TestExec(process):
     def run():
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
         start(replicas)
-        if await(each(r in replicas, has=sent(('done',), to=_r))):
+        # wait until every replica has sent a message in the last round
+        if await(each(r in replicas, has=some(received(m, from_=_r), has= get_round(m[0]) == nrounds - 1)):
             logger.debug('[all replicas reached desired round]')
+            done_msg = (('done',), 'executor')
+            super().send(done_msg, replicas)
             # property 1
             if not each(rnd in range(nrounds), has=safe_round(rnd)):
                 print('Property 1 violated')
@@ -142,8 +145,10 @@ class TestExec(process):
             if violated or len(chain) != len(global_commits):
                 print('Property 2 violated')
             # property 3
-            # TODO check commit logs to see what was locally committed
-
+            # technically the wording of property 3 means this hold true for all rounds after gst, not just the one immediately after
+            honest = [procs[0] for ident, procs in id_to_process.items() if len(procs) == 1]
+            if not each(r in honest, has= some(received(('committed', (_, rnd, _)), from_=_r), has= rnd > gst):
+                print('Property 3 could be violated')
             # property 4
             violated = False
             for rnd in range(gst, nrounds):
@@ -158,7 +163,14 @@ class TestExec(process):
                         if ident in twins:
                             continue
                         # TODO get time stamp from log
-                        log_time = None
+                        proc = id_to_process[ident][0]
+                        blocks = setof(msg.block.id, received(msg, from_=_honest), msg[1][0] == 'proposal' and msg[1][1].block.round == rnd)
+                        if len(blocks) != 1:
+                            print('honest validator sent equivocating proposals (should never happen)')
+                            violated = True
+                            break
+                        block_id = blocks[0]
+                        log_time = setof(time, received(('committed', (_block_id, _rnd, time)), from_=_proc))[0]
                         if (log_time - time).total_seconds() > 7 * transmission_delay_bound:
                             violated = True
                             break
@@ -166,11 +178,8 @@ class TestExec(process):
                     break
              if violated:
                 print('Property 4 violated')
-
-
-
         elif timeout(t):
-            logger.debug('[entire test case timeout]')
+            logger.debug('[entire test case timed out]')
 
     def can_send(src, dst, r):
         part = partitions[r]
@@ -196,15 +205,18 @@ class TestExec(process):
 
     def receive(msg=M, from_=sender):
         dst, msg = M
+        if dst == 'executor':
+            # this is a committed message which just needs to be stored in the message history
+            # for liveness checking at the end
+            return
         rnd = get_round(msg)
         src = process_to_id[sender][0]
         if src not in twins:
             first_to_enter[rnd] = min(first_to_enter.get(rnd, datetime.max), datetime.now())
         if rnd == nrounds:
-            done_msg = (('done',), 'executor')
-            if not sent(done_msg, to=_sender):
-                send(done_msg, sender)
-                logger.debug(f'[{process_to_id[sender]} reached final round]')
+            # allow replica to respond to syncup messages?
+            # no because padded partitions after GST mean all replicas should enter the 
+            # last round without needing syncup (i think)
             return
         receivers = id_to_process[dst]
         for receiver in receivers:

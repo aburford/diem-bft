@@ -21,6 +21,7 @@ class ReplicaTestExec(process, Replica):
         testcase_name
     ):
         super().setup(
+            executor,
             replica_ids,
             transmission_delay_bound,
             public_keys,
