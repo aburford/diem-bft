@@ -1,5 +1,7 @@
 from replica import Replica
-from replicafi import ReplicaFI
+import mempool
+from replicatestexec import ReplicaTestExec
+from testconfig import *
 from client import Client
 import leaderelection
 import random
@@ -19,6 +21,7 @@ class TestExec(process):
         # Stoller recommends doing this for macOS where UDP max datagram size is too small so this forces TCP
         self.num_replicas = len(test_config.replicas)
         self.num_faulty = len(test_config.twins)
+        self.test_case = test_config.name
         self.f = num_faulty
         self.twins = [ident[0] for ident in test_config.twins]
         self.seed = test_config.seed
@@ -45,25 +48,20 @@ class TestExec(process):
         for r, ident in zip(replicas, (test_config.replicas + test_config.twins)):
             process_to_id[r] = ident
             ident = ident[0]
-            id_to_process.setdefault(ident, []).append(ident)
+            id_to_process.setdefault(ident, []).append(r)
         self.partitions = {}
         for rnd_num, rnd in enumerate(test_config.rounds):
             parts = {}
-            for i, p in enumerate(rnd.partitions):
+            for i, p in enumerate(rnd.partition):
                 for r in p:
                     # convert d' to d twin process
                     processes = id_to_process[r[0]]
                     proc = processes[len(r)-1]
                     parts[proc] = i
             self.partitions[rnd_num] = parts
-        txns = []
-        alpabet = [chr(x) for x in range(ord('a'), ord('z') + 1)]
-        for _ in range(len(test_config.round * mempool.BLOCK_SIZE * 2)):
-            txn = [random.choice(alphabet) for _ in range(6)]
-            txns.append((uuid4().hex, ''.join(txn)))
         for replica in replicas:
-            logger.debug(f'[setting up replicafi {replica}]')
-            ident = self.process_to_id[replica]
+            logger.debug(f'[setting up replicatestexec {replica}]')
+            ident = self.process_to_id[replica][0]
             setup(
                 replica, (
                     self,
@@ -72,15 +70,14 @@ class TestExec(process):
                     public_keys,
                     private_keys[ident],
                     ident,
-                    random.random(),
+                    seed,
                     num_faulty,
-                    txns.copy(),
                     leaders,
+                    len(test_config.rounds),
                     test_config.name
                 )
             )
-            random.shuffle(txns)
-        self.t= test_config.timeout
+        self.t = test_config.timeout
     
     # msg = (src/dst, (msg_type, content))
 
@@ -119,7 +116,7 @@ class TestExec(process):
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
         start(replicas)
         # wait until every replica has sent a message in the last round
-        if await(each(r in replicas, has=some(received(m, from_=_r), has= get_round(m[0]) == nrounds - 1)):
+        if await(each(r in replicas, has=some(received(m, from_=_r), has= get_round(m[0]) == nrounds - 1))):
             logger.debug('[all replicas reached desired round]')
             done_msg = (('done',), 'executor')
             super().send(done_msg, replicas)
@@ -147,7 +144,7 @@ class TestExec(process):
             # property 3
             # technically the wording of property 3 means this hold true for all rounds after gst, not just the one immediately after
             honest = [procs[0] for ident, procs in id_to_process.items() if len(procs) == 1]
-            if not each(r in honest, has= some(received(('committed', (_, rnd, _)), from_=_r), has= rnd > gst):
+            if not each(r in honest, has=some(received(('committed', (_, rnd, _)), from_=_r), has= rnd > gst)):
                 print('Property 3 could be violated')
             # property 4
             violated = False
@@ -176,7 +173,7 @@ class TestExec(process):
                             break
                 if violated:
                     break
-             if violated:
+            if violated:
                 print('Property 4 violated')
         elif timeout(t):
             logger.debug('[entire test case timed out]')
@@ -205,6 +202,14 @@ class TestExec(process):
 
     def receive(msg=M, from_=sender):
         dst, msg = M
+        if type(dst) == list:
+            for d in dst:
+                receive_handler((d, msg), sender)
+        else:
+            receive_handler(M, sender)
+
+    def receive_handler(M, sender):
+        dst, msg = M
         if dst == 'executor':
             # this is a committed message which just needs to be stored in the message history
             # for liveness checking at the end
@@ -221,7 +226,8 @@ class TestExec(process):
         receivers = id_to_process[dst]
         for receiver in receivers:
             if can_send(sender, receiver, rnd):
-                send((msg, src), proc)
+                super().send((msg, src), receiver)
+        
 
 def main():
     config(channel = 'reliable')
@@ -244,8 +250,9 @@ def main():
 
     # manually create a test case
     rounds = [Round('a', [["a", "b", "d"], ["c", "d'"]], [])]
-    test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds, 0.2, 0, 'test', 30))
+    gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(10)]
+    test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.2, 0, 'test', 30, 1))
 
     for test_config in test_cases:
-        r = new(TestExec, (test_config))
+        r = new(TestExec, (test_config,))
         start(r)

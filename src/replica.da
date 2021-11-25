@@ -23,7 +23,6 @@ class Replica(process):
         ident,
         seed,
         num_faulty,
-        txns,
         testcase_name
     ):
         self.u = to_str()
@@ -44,15 +43,12 @@ class Replica(process):
         blocktree.f = num_faulty
         mempool.u = to_str()
         mempool.multicast = multicast
-        for uuid, txn in txns:
-            mempool.requests[uuid] = txn
         ledger.u = to_str()
         random.seed(seed)
         syncmanager.u = to_str()
         syncmanager.multicast = multicast
         syncmanager.process_certificate_qc = process_certificate_qc
         syncmanager.handle_msg = handle_msg
-        syncmanager.server_ids = server_ids
     
         
     
@@ -69,7 +65,7 @@ class Replica(process):
         public keys are: {public_keys}\n\
         private key is: {private_key}\n\
         random seed is: {seed}\n\
-        total replicas are: {replicas}\n\
+        total replicas are: {replica_ids}\n\
         transmission delay bound is: {transmission_delay_bound}")
 
         
@@ -126,19 +122,19 @@ class Replica(process):
         logger.debug(f"[received '{M[0]}' message] from: [{sender}] \n\
             content = [{M}]")
         if msg_type == 'proposal':
-            logger.info('%s received %s message from %s for round %d' % (to_str(), M[0], server_ids[sender], M[1].block.round))
+            logger.info('%s received %s message from %s for round %d' % (to_str(), M[0], sender, M[1].block.round))
             process_proposal_msg(M[1], sender)
         elif msg_type == 'vote':
-            logger.info('%s received %s message from %s for round %d because it is leader for round %d' % (to_str(), M[0], server_ids[sender], M[1].vote_info.round, M[1].vote_info.round + 1))
+            logger.info('%s received %s message from %s for round %d because it is leader for round %d' % (to_str(), M[0], sender, M[1].vote_info.round, M[1].vote_info.round + 1))
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
-            logger.info('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], server_ids[sender], M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
+            logger.info('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], sender, M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
             process_timeout_msg(M[1], sender)
         elif msg_type == 'sync_request':
-            logger.info('%s received %s message from %s' % (to_str(), M[0], server_ids[sender]))
+            logger.info('%s received %s message from %s' % (to_str(), M[0], sender))
             syncmanager.process_sync_request(M[1], sender)
         elif msg_type == 'sync_response':
-            logger.info('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], server_ids[sender], M[1].high_qc_path[-1].round))
+            logger.info('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], sender, M[1].high_qc_path[-1].round))
             syncmanager.process_sync_response(M[1], sender)
         elif msg_type == 'request' and sender in clients:
             # process request from client
@@ -200,7 +196,7 @@ class Replica(process):
         current_round = pacemaker.current_round
         leader = leaderelection.get_leader(current_round)
         if P.block.round != current_round or \
-            self.server_ids.get(sender) != leader or \
+            sender != leader or \
             P.block.author != leader:
             return
         blocktree.execute_and_insert(P.block)

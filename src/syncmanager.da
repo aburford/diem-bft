@@ -14,7 +14,6 @@ u = None
 multicast = None
 process_certificate_qc = None
 handle_msg = None
-server_ids = None
 
 # TODO how is round incremented if we catch up on rounds with timeouts in between?
 
@@ -70,11 +69,11 @@ def process_sync_response(sync_response, src):
 
     # check if we're done
     if synced():
-        print('%s finished syncing up with %s' % (u, server_ids[src]))
+        print('%s finished syncing up with %s' % (u, src))
         end_sync()
     else:
-        print('%s failed to sync with response from %s' % (u, server_ids[src]))
-        attempted_peers.add(server_ids[src])
+        print('%s failed to sync with response from %s' % (u, src))
+        attempted_peers.add(src)
         send_sync_request()
 
 

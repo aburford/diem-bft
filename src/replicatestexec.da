@@ -5,6 +5,7 @@ import random
 import safety
 from config import *
 from time import sleep
+import mempool
 
 class ReplicaTestExec(process, Replica):
     def setup(
@@ -16,8 +17,8 @@ class ReplicaTestExec(process, Replica):
         ident,
         seed,
         num_faulty,
-        txns,
         leaders,
+        nrounds,
         testcase_name
     ):
         super().setup(
@@ -29,12 +30,20 @@ class ReplicaTestExec(process, Replica):
             ident,
             seed,
             num_faulty,
-            txns,
             testcase_name
         )
-        replica_ids = test_config.replicas
-        twins = test_config.twins
-        u = process_to_id[self]
+        personal_seed = random.random()
+        random.seed(seed)
+        txns = []
+        alphabet = [chr(x) for x in range(ord('a'), ord('z') + 1)]
+        for _ in range(nrounds * mempool.BLOCK_SIZE * 2):
+            txn = [random.choice(alphabet) for _ in range(6)]
+            uuid = '%xu' % random.getrandbits(16*8)
+            txns.append((uuid, ''.join(txn)))
+        random.seed(personal_seed)
+        random.shuffle(txns)
+        for uuid, txn in txns:
+            mempool.requests[uuid] = txn
         leaderelection.reputation_leaders = leaders
 
     def receive(msg=M, from_=sender):
@@ -42,5 +51,6 @@ class ReplicaTestExec(process, Replica):
 
     # to is always a identifier string (not a process)
     def send(m, to):
+        print('sending %s to %s' % (m, to))
         super().send((to, m), executor)
 
