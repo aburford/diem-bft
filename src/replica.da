@@ -49,10 +49,6 @@ class Replica(process):
         syncmanager.multicast = multicast
         syncmanager.process_certificate_qc = process_certificate_qc
         syncmanager.handle_msg = handle_msg
-    
-        
-    
-            
         # logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
         #     format= '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w') 
         formatter = '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s'
@@ -80,7 +76,7 @@ class Replica(process):
 
     # TODO: send should only be called with string identifiers
     def multicast(msg, to):
-        if isinstance(to, set):
+        if isinstance(to, set) or isinstance(to, list):
             for dst in to:
                 multicast(msg, to=dst)
             return
@@ -113,10 +109,8 @@ class Replica(process):
     # │ if M is a proposal message then process_proposal_msg(M)
     # │ if M is a vote message then process_vote_msg(M)
     # └ if M is a timeout message then process_timeout_msg(M)
-    def receive(msg=M, from_=sender):
-        handle_msg(M, sender)
-
     # indirectly called so we can replay messages from syncmanager
+    # and receive messages from replicatestexec
     def handle_msg(M, sender):
         msg_type = M[0]
         logger.debug(f"[received '{M[0]}' message] from: [{sender}] \n\
@@ -169,7 +163,7 @@ class Replica(process):
                 # tell TestExec that we have locally committed this block
                 block_id = qc.vote_info.parent_id
                 rnd = qc.vote_info.parent_round
-                if not sent(('committed', (_block_id, _, _))):
+                if not some(sent(('committed', (_block_id, _, _)))):
                     send(('committed', (block_id, rnd, datetime.now())), to=executor)
             leaderelection.update_leaders(qc)
             pacemaker.advance_round_qc(qc.vote_info.round)
@@ -220,11 +214,13 @@ class Replica(process):
         # TODO technically if we are missing the block voted on in the previous round we need to request that with a sync request
         # but that's a new case cause there's no QC for that block yet...
         if syncmanager.need_vote_sync(M.high_commit_qc, M.vote_info, M, sender):
-            print('%s ignoring vote because not synced' % u)
+            logger.info('%s ignoring vote because not synced' % u)
             return
         qc = blocktree.process_vote(M)
         if qc:
+            print('%s collected quorum of votes' % u)
             process_certificate_qc(qc)
+            print('%s calling new round event' % u)
             process_new_round_event(None)
 
     def process_new_round_event(last_tc):
@@ -247,6 +243,7 @@ class Replica(process):
                     pacemaker.current_round
                 )
                 msg = blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)
+                logger.info('%s sending proposal' % u)
                 broadcast(('proposal', msg))
             else:
                 logger.info(to_str() + ' has no reason to generate proposal')

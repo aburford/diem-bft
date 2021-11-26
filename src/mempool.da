@@ -44,11 +44,10 @@ def get_transactions(exclude_payloads):
     return payload[:BLOCK_SIZE]
 
 def commit_transactions(txns, commit_state_id):
-    #print('committing txns:', txns)
     for (command, author, uuid) in txns:
         requests.move_to_end(uuid, last=False)
         requests[uuid] = ((command, author, uuid), commit_state_id)
-        client = id_to_server[author]
-        multicast(('committed', (command, author, uuid), commit_state_id), to=client)
+        #client = id_to_server[author]
+        #multicast(('committed', (command, author, uuid), commit_state_id), to=client)
         if len(requests) == SIZE:
             requests.popitem()

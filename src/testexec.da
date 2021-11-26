@@ -122,7 +122,7 @@ class TestExec(process):
             super().send(done_msg, replicas)
             # property 1
             if not each(rnd in range(nrounds), has=safe_round(rnd)):
-                print('Property 1 violated')
+                logger.info('Property 1 violated')
             # property 2
             global_commits = get_global_commits()
             graph = {}
@@ -140,12 +140,12 @@ class TestExec(process):
                 seen.add(block)
                 chain.append(block)
             if violated or len(chain) != len(global_commits):
-                print('Property 2 violated')
+                logger.info('Property 2 violated')
             # property 3
             # technically the wording of property 3 means this hold true for all rounds after gst, not just the one immediately after
             honest = [procs[0] for ident, procs in id_to_process.items() if len(procs) == 1]
             if not each(r in honest, has=some(received(('committed', (_, rnd, _)), from_=_r), has= rnd > gst)):
-                print('Property 3 could be violated')
+                logger.info('Property 3 could be violated')
             # property 4
             violated = False
             for rnd in range(gst, nrounds):
@@ -163,7 +163,7 @@ class TestExec(process):
                         proc = id_to_process[ident][0]
                         blocks = setof(msg.block.id, received(msg, from_=_honest), msg[1][0] == 'proposal' and msg[1][1].block.round == rnd)
                         if len(blocks) != 1:
-                            print('honest validator sent equivocating proposals (should never happen)')
+                            logger.info('honest validator sent equivocating proposals (should never happen)')
                             violated = True
                             break
                         block_id = blocks[0]
@@ -174,7 +174,7 @@ class TestExec(process):
                 if violated:
                     break
             if violated:
-                print('Property 4 violated')
+                logger.info('Property 4 violated')
         elif timeout(t):
             logger.debug('[entire test case timed out]')
 
@@ -201,6 +201,7 @@ class TestExec(process):
         #elif msg_type == 'sync_response':
 
     def receive(msg=M, from_=sender):
+        #logger.info('receive', M, sender)
         dst, msg = M
         if type(dst) == list:
             for d in dst:
@@ -249,7 +250,8 @@ def main():
         os.mkdir("log")
 
     # manually create a test case
-    rounds = [Round('a', [["a", "b", "d"], ["c", "d'"]], [])]
+    #rounds = [Round('a', [["a", "b", "d"], ["c", "d'"]], [])]
+    rounds = [Round('a', [["a", "b", "c", "d", "d'"]], [])]
     gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(10)]
     test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.2, 0, 'test', 30, 1))
 

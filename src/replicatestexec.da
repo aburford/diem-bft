@@ -43,14 +43,14 @@ class ReplicaTestExec(process, Replica):
         random.seed(personal_seed)
         random.shuffle(txns)
         for uuid, txn in txns:
-            mempool.requests[uuid] = txn
+            mempool.requests[uuid] = ((txn, 'client0', uuid), None)
         leaderelection.reputation_leaders = leaders
+        self.u = ident
 
     def receive(msg=M, from_=sender):
-        super().receive(*M)
+        super().handle_msg(*M)
 
     # to is always a identifier string (not a process)
     def send(m, to):
-        print('sending %s to %s' % (m, to))
         super().send((to, m), executor)
 
