@@ -25,6 +25,7 @@ class Replica(process):
         num_faulty,
         testcase_name
     ):
+        self.done = False
         self.u = to_str()
         safety.public_keys = public_keys
         safety.private_key = private_key
@@ -96,14 +97,14 @@ class Replica(process):
         pacemaker.start_timer(0)
         while True:
             (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
-            if await received(('done',)):
+            if await done:
                 break
             elif timeout(duration):
                 (duration, paused) = pacemaker.get_round_timer(pacemaker.current_round)
                 if not(paused):
                     pacemaker.local_timeout_round()
         ledger.close_ledger()
-        logger.info("[finished running]")
+        logger.info("%s finished running" % u)
     
     # Procedure start event processing(M)
     # │ if M is a proposal message then process_proposal_msg(M)
@@ -130,6 +131,8 @@ class Replica(process):
         elif msg_type == 'sync_response':
             logger.info('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], sender, M[1].high_qc_path[-1].round))
             syncmanager.process_sync_response(M[1], sender)
+        elif msg_type == 'done':
+            done = True
         elif msg_type == 'request' and sender in clients:
             # process request from client
             txn = M[1]
@@ -164,7 +167,7 @@ class Replica(process):
                 block_id = qc.vote_info.parent_id
                 rnd = qc.vote_info.parent_round
                 if not some(sent(('committed', (_block_id, _, _)))):
-                    send(('committed', (block_id, rnd, datetime.now())), to=executor)
+                    send(('committed', (block_id, rnd, datetime.now())), to='executor')
             leaderelection.update_leaders(qc)
             pacemaker.advance_round_qc(qc.vote_info.round)
 
@@ -218,9 +221,7 @@ class Replica(process):
             return
         qc = blocktree.process_vote(M)
         if qc:
-            print('%s collected quorum of votes' % u)
             process_certificate_qc(qc)
-            print('%s calling new round event' % u)
             process_new_round_event(None)
 
     def process_new_round_event(last_tc):
@@ -243,7 +244,7 @@ class Replica(process):
                     pacemaker.current_round
                 )
                 msg = blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)
-                logger.info('%s sending proposal' % u)
+                logger.info('%s sending proposal for round %d' % (u, pacemaker.current_round))
                 broadcast(('proposal', msg))
             else:
                 logger.info(to_str() + ' has no reason to generate proposal')

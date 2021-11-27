@@ -28,6 +28,13 @@ class TestExec(process):
         self.transmission_delay_bound = test_config.transmission_delay_bound
         self.nrounds = len(test_config.rounds)
         self.leaders = {i: r.leader for i, r in enumerate(test_config.rounds)}
+        # repeat leader of last round because vote messages
+        # in the last round need to be send to the leader
+        # of the next round
+        # TODO remember that this means a block could be committed by
+        # one replica in round nrounds which might look like incorrect
+        # behavior but i guess is how we'll do it.
+        leaders[nrounds] = leaders[nrounds - 1]
         self.gst = test_config.gst
         formatter ='%(asctime)s:%(message)s'
         self.logger = createLogger(__name__, f"log/{test_case}_run.log",formatter)
@@ -83,7 +90,7 @@ class TestExec(process):
 
     # return block ids
     def blocks():
-        return setof(msg.block.id, received(msg), msg[1][0] == 'proposal')
+        return setof(msg[1][1].block.id, received(msg), msg[1][0] == 'proposal')
 
     # return (block_id, round, parent_id)
     def blocklinks():
@@ -116,7 +123,9 @@ class TestExec(process):
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
         start(replicas)
         # wait until every replica has sent a message in the last round
-        if await(each(r in replicas, has=some(received(m, from_=_r), has= get_round(m[0]) == nrounds - 1))):
+        print('test exec waiting for rounds to complete')
+        if await(each(r in replicas, has=some(received(m, from_=_r), has=get_round(m[1]) == nrounds - 1))):
+            print('all rounds completed')
             logger.debug('[all replicas reached desired round]')
             done_msg = (('done',), 'executor')
             super().send(done_msg, replicas)
@@ -252,8 +261,8 @@ def main():
     # manually create a test case
     #rounds = [Round('a', [["a", "b", "d"], ["c", "d'"]], [])]
     rounds = [Round('a', [["a", "b", "c", "d", "d'"]], [])]
-    gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(10)]
-    test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.2, 0, 'test', 30, 1))
+    gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(7)]
+    test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.8, 0, 'test', 30, 1))
 
     for test_config in test_cases:
         r = new(TestExec, (test_config,))
