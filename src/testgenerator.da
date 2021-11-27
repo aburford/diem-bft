@@ -1,0 +1,193 @@
+from collections import namedtuple
+from enum import Enum
+import random
+
+tests = 1000
+R = 6 # rounds
+P = 114 # partitions
+C = 1000 # round configurations
+L = 4 # leader choices
+E = 2 # inter partition drops
+
+N = 7 # nodes
+F = 0 # faulty nodes
+
+random_partitions = False # random partitions
+random_leaders = False # random leaders
+random_configurations = False # random per-round configurations
+
+allow_faulty_leaders = True
+
+all_partitions = None
+all_configurations = None
+
+# Take the first n things from the generator
+def take(generator, n):
+    i = 0
+    for thing in generator:
+        yield thing
+        i += 1
+        if i >= n:
+            break
+
+def twin(replica):
+    if '\'' in replica:
+        return replica[:-1]
+    else:
+        return replica + '\''
+
+replicas = ['replica' + str(j) for j in range(N)]
+replicas += [twin(replica) for replica in take(replicas, F)]
+
+class MsgType(Enum):
+    Proposal = 'proposal'
+    TimeOut = 'timeout'
+    Vote = 'vote'
+    Wildcard = '*' # matches all message types
+
+BucketConfig = namedtuple('BucketConfig', ('leader', 'bucket', 'excepts'))
+Except = namedtuple('Except', ('src', 'dst', 'msg_type'))
+
+# Enumerates all possible intra-partition message drops
+def excepts(endpoints):
+    endpoints = endpoints + ['_']
+    msg_types = [
+        MsgType.Proposal,
+        MsgType.TimeOut,
+        MsgType.Vote,
+        MsgType.Wildcard
+    ]
+    for src in endpoints:
+        for dst in endpoints:
+            for msg_type in msg_types:
+                yield Except(src, dst, msg_type)
+
+# Generates all samples of k things from the generator
+def replacement_samples(gen, gen_args, k):
+    if k == 0:
+       yield []
+    else:
+        for sample in replacement_samples(gen, gen_args, k - 1):
+            for thing in gen(*gen_args):
+                yield [thing] + sample
+
+# Generate all combinations of message drops
+def except_samples(bucket):
+    i = 0
+    while True:
+        for sample in replacement_samples(excepts, [bucket], i):
+            yield sample
+        i += 1
+
+# Pick a random partition
+def random_partition_gen():
+    global all_partitions
+    if all_partitions == None:
+        all_partitions = [partition for partition in partition_gen(len(replicas))]
+
+    while True:
+        yield random.choice(all_partitions)
+
+# Generate partitions deterministically
+def partition_gen(n):
+    if n == 1:
+        yield [[replicas[0]]]
+    else:
+        # Recursively generate partitions for the n - 1 other replicas
+        for partition in partition_gen(n - 1):
+            for i, bucket in enumerate(partition):
+                # Twins are forbidden from being in the same bucket
+                if twin(replicas[n - 1]) in bucket:
+                    continue
+                new_partition = partition.copy()
+                new_partition[i] = bucket.copy()
+                new_partition[i].append(replicas[n - 1])
+                yield new_partition
+            partition.append([replicas[n - 1]])
+            yield partition
+
+# Randomly or deterministically generates partitions
+def partitions():
+    if random_partitions:
+        return random_partition_gen()
+    else:
+        return partition_gen(len(replicas))
+
+# Randomly or deterministically generates leaders for a bucket. "Bucket" is explained in the
+# next comment
+def bucket_leaders(bucket):
+    if allow_faulty_leaders:
+        eligible_leaders = replicas
+    else:
+        eligible_leaders = [replica for replica in bucket if not(twin(replica) in replicas)]
+    if random_leaders:
+        while True:
+            yield random.choice(eligible_leaders)
+    else:
+        for leader in eligible_leaders:
+            yield leader
+
+# Generates leaders and exceptions for a set within a partition. "Set within a partition"
+# is referred to as a "bucket" in the pseudocode. The authors of the Twins paper overload
+# the word "partition" to refer to both the partition and the elements within it
+def bucket_configs(partition):
+    if len(partition) == 0:
+        yield []
+    else:
+        bucket = [replica for replica in partition[0]]
+        for bucket_config_set in bucket_configs(partition[1:]):
+            other_leaders = [bc.leader for bc in bucket_config_set]
+            for leader in take(bucket_leaders(bucket), L):
+                skip = False
+                for other_leader in other_leaders:
+                    # If the twin of a leader of another partition is in this bucket, it
+                    # must be the leader
+                    if twin(other_leader) in bucket:
+                        skip = True
+                        for except_sample in take(except_samples(bucket), E):
+                            yield [BucketConfig(twin(other_leader), bucket, except_sample)] + bucket_config_set
+                        break
+                if skip:
+                    break
+                for except_sample in take(except_samples(bucket), E):
+                    yield [BucketConfig(leader, bucket, except_sample)] + bucket_config_set
+
+# Deterministically generate the round configurations. Partitions and leaders might still
+# be random if random_partitions or random_leaders is true
+def round_gen():
+    i = 0
+    for partition in take(partitions(), P):
+        for bucket_config_set in bucket_configs(partition):
+            i += 1
+            if i >= C:
+                return
+            yield bucket_config_set
+
+# Generates a round configuration at random. If the partitions are deterministic, it
+# samples from the first P partitions. If the leaders are deterministic, it samples from
+# the first L leaders
+def random_round_gen():
+    global all_configurations
+    if all_configurations == None:
+        all_configurations = [configuration for configuration in round_gen()]
+
+    while True:
+        yield random.choice(all_configurations)
+
+# Full-partition round simulating GST (no message drops)
+def GST_round():
+    i = iter(replicas)
+    originals = [replica for replica in take(i, N)]
+    twins = [replica for replica in take(i, F)]
+    return [
+        BucketConfig(bucket[0], bucket, []) for bucket in (originals, twins) if len(bucket) > 0
+    ]
+
+def test_generator():
+    if random_configurations:
+        generator = random_round_gen
+    else:
+        generator = round_gen
+    for test in take(replacement_samples(generator, (), R), tests):
+        # Pad with seven full-parition rounds for property 4
+        yield test + [GST_round()] * 7

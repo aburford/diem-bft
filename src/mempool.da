@@ -2,7 +2,7 @@ from collections import OrderedDict
 requests = OrderedDict()
 # maximum number of transactions to include in a block
 BLOCK_SIZE = 4
-SIZE = 100
+SIZE = 1000
 # set by replica
 id_to_server = None
 multicast = None
