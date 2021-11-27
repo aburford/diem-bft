@@ -156,14 +156,14 @@ class TestExec(process):
                 logger.info('Property 2 upheld')
             # property 3
             # technically the wording of property 3 means this hold true for all rounds after gst, not just the one immediately after
-            honest = [procs[0] for ident, procs in id_to_process.items() if len(procs) == 1]
-            if not each(r in honest, has=some(received(('committed', (_, rnd, _)), from_=_r), has= rnd > gst)):
+            honest = {procs[0] for ident, procs in id_to_process.items() if len(procs) == 1}
+            if not each(r in honest, has=some(received(('executor', ('committed', (_, rnd, _))), from_=_r), has= rnd > gst)):
                 logger.info('Property 3 could be violated')
             else:
                 logger.info('Property 3 upheld')
             # property 4
             violated = False
-            for rnd in range(gst, nrounds):
+            for rnd in range(gst, nrounds - 2):
                 honest_leaders = True
                 for i in range(3):
                     if leaders[rnd + i] in twins:
@@ -171,18 +171,23 @@ class TestExec(process):
                         break
                 if honest_leaders:
                     time = first_to_enter[rnd]
+                    blocks = setof(msg[1][1].block.id, received(msg, from_=r), r in honest and msg[1][0] == 'proposal' and msg[1][1].block.round == rnd)
+                    if len(blocks) > 1:
+                        logger.info('honest validator sent equivocating proposals (should never happen)')
+                        violated = True
+                        break
+                    elif len(blocks) == 0:
+                        logger.info('honest validator didnt send proposal in round after GST (should never happen)')
+                        violated = True
+                        break
+                    block_id = blocks.pop()
                     for ident in test_config.replicas:
                         if ident in twins:
                             continue
-                        # TODO get time stamp from log
                         proc = id_to_process[ident][0]
-                        blocks = setof(msg.block.id, received(msg, from_=_honest), msg[1][0] == 'proposal' and msg[1][1].block.round == rnd)
-                        if len(blocks) != 1:
-                            logger.info('honest validator sent equivocating proposals (should never happen)')
-                            violated = True
-                            break
-                        block_id = blocks[0]
-                        log_time = setof(time, received(('committed', (_block_id, _rnd, time)), from_=_proc))[0]
+                        # should always have length of 1 anyways
+                        log_times = sorted(listof(time, received(('executor', ('committed', (_block_id, _rnd, time))), from_=_proc)))
+                        log_time = log_times[0]
                         if (log_time - time).total_seconds() > 7 * transmission_delay_bound:
                             violated = True
                             break
@@ -193,7 +198,7 @@ class TestExec(process):
             else:
                 logger.info('Property 4 upheld')
         elif timeout(t):
-            logger.debug('[entire test case timed out]')
+            logger.info('[entire test case timed out]')
 
     def can_send(src, dst, r):
         part = partitions[r]
@@ -269,7 +274,7 @@ def main():
     # manually create a test case
     #rounds = [Round('a', [["a", "b", "d"], ["c", "d'"]], [])]
     rounds = [Round('a', [["a", "b", "c", "d", "d'"]], [])]
-    gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(2)]
+    gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(7)]
     test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.8, 0, 'test', 30, 1))
 
     for test_config in test_cases:

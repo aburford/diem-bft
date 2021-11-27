@@ -166,7 +166,7 @@ class Replica(process):
                 # tell TestExec that we have locally committed this block
                 block_id = qc.vote_info.parent_id
                 rnd = qc.vote_info.parent_round
-                if not some(sent(('committed', (_block_id, _, _)))):
+                if not some(sent(('executor', ('committed', (_block_id, _, _))))):
                     send(('committed', (block_id, rnd, datetime.now())), to='executor')
             leaderelection.update_leaders(qc)
             pacemaker.advance_round_qc(qc.vote_info.round)
