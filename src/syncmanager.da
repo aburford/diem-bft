@@ -58,7 +58,6 @@ def process_sync_request(sync_request, src):
     multicast(('sync_response', resp), src)
 
 def process_sync_response(sync_response, src):
-    print('%s got sync response' % u)
     if not syncing:
         return False
     # first catch up high_commit_qc

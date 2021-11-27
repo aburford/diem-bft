@@ -123,7 +123,7 @@ class Replica(process):
             logger.info('%s received %s message from %s for round %d because it is leader for round %d' % (to_str(), M[0], sender, M[1].vote_info.round, M[1].vote_info.round + 1))
             process_vote_msg(M[1], sender)
         elif msg_type == 'timeout':
-            logger.info('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], sender, M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
+            #logger.info('%s received %s message from %s for round %d with last_tc round %d' % (to_str(), M[0], sender, M[1].tmo_info.round, M[1].last_round_tc.round if M[1].last_round_tc else -1))
             process_timeout_msg(M[1], sender)
         elif msg_type == 'sync_request':
             logger.info('%s received %s message from %s' % (to_str(), M[0], sender))
