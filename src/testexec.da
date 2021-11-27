@@ -90,16 +90,16 @@ class TestExec(process):
 
     # return block ids
     def blocks():
-        return setof(msg[1][1].block.id, received(msg), msg[1][0] == 'proposal')
+        return setof(msg[1][1].block.id, received(msg), msg[1][0] == 'proposal' and get_round(msg[1]) < nrounds)
 
     # return (block_id, round, parent_id)
     def blocklinks():
-        return setof((msg.block.id, msg.block.round, msg.block.qc.vote_info.id), received(msg), msg[1][0] == 'proposal')
+        return setof((msg[1][1].block.id, msg[1][1].block.round, msg[1][1].block.qc and msg[1][1].block.qc.vote_info.id), received(msg), msg[1][0] == 'proposal' and get_round(msg[1]) < nrounds)
 
     # return replica ids of all votes for specific block in a round
     # twins have same id
     def voters(block, rnd):
-        return setof(msg[0][0], received(msg), msg[1][0] == 'vote' and msg[1][1].vote_info.id == block and msg[1][1].vote_info.round == rnd)
+        return setof(msg[1][1].sender, received(msg), msg[1][0] == 'vote' and msg[1][1].vote_info.id == block and msg[1][1].vote_info.round == rnd)
 
     def cert_blocks(rnd):
         return setof(block, block in blocks(), lenof(v, v in voters(block, rnd)) >= 2*f + 1)
@@ -108,7 +108,7 @@ class TestExec(process):
         return setof(block, block in blocks(), lenof(v, v in voters(block, rnd), v not in twins) >= f + 1)
 
     def global_commit_voters(block, rnd):
-        return setof(msg[0][0], received(msg), msg[1][0] == 'vote' and msg[1][1].vote_info.parent_id == block and msg[1][1].vote_info.round == rnd)
+        return setof(msg[1][1].sender, received(msg), msg[1][0] == 'vote' and msg[1][1].vote_info.parent_id == block and msg[1][1].vote_info.round == rnd)
 
     def is_global_commit(block, rnd):
         return lenof(v, v in global_commit_voters(block, rnd + 1), v not in twins) >= f + 1
@@ -117,7 +117,7 @@ class TestExec(process):
         return setof((link[0], link[2]), link in blocklinks(), is_global_commit(link[0], link[1]))
 
     def safe_round(rnd):
-        each(cert_block in cert_blocks(rnd), has=not some(block in weak_cert_blocks(rnd), has=block != cert_block))
+        return each(cert_block in cert_blocks(rnd), has=not some(block in weak_cert_blocks(rnd), has=block != cert_block))
 
     def run():
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
@@ -132,10 +132,12 @@ class TestExec(process):
             # property 1
             if not each(rnd in range(nrounds), has=safe_round(rnd)):
                 logger.info('Property 1 violated')
+            else:
+                logger.info('Property 1 upheld')
             # property 2
             global_commits = get_global_commits()
             graph = {}
-            for block, parent in graph:
+            for block, parent in global_commits:
                 graph[parent] = block
             chain = []
             seen = set()
@@ -150,11 +152,15 @@ class TestExec(process):
                 chain.append(block)
             if violated or len(chain) != len(global_commits):
                 logger.info('Property 2 violated')
+            else:
+                logger.info('Property 2 upheld')
             # property 3
             # technically the wording of property 3 means this hold true for all rounds after gst, not just the one immediately after
             honest = [procs[0] for ident, procs in id_to_process.items() if len(procs) == 1]
             if not each(r in honest, has=some(received(('committed', (_, rnd, _)), from_=_r), has= rnd > gst)):
                 logger.info('Property 3 could be violated')
+            else:
+                logger.info('Property 3 upheld')
             # property 4
             violated = False
             for rnd in range(gst, nrounds):
@@ -184,6 +190,8 @@ class TestExec(process):
                     break
             if violated:
                 logger.info('Property 4 violated')
+            else:
+                logger.info('Property 4 upheld')
         elif timeout(t):
             logger.debug('[entire test case timed out]')
 
@@ -261,7 +269,7 @@ def main():
     # manually create a test case
     #rounds = [Round('a', [["a", "b", "d"], ["c", "d'"]], [])]
     rounds = [Round('a', [["a", "b", "c", "d", "d'"]], [])]
-    gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(7)]
+    gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(2)]
     test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.8, 0, 'test', 30, 1))
 
     for test_config in test_cases:

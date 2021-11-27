@@ -244,7 +244,7 @@ class Replica(process):
                     pacemaker.current_round
                 )
                 msg = blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)
-                logger.info('%s sending proposal for round %d' % (u, pacemaker.current_round))
+                logger.info('%s sending proposal for round %d with block id %s' % (u, pacemaker.current_round, b.id))
                 broadcast(('proposal', msg))
             else:
                 logger.info(to_str() + ' has no reason to generate proposal')

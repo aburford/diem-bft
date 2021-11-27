@@ -65,11 +65,11 @@ class VoteInfo:
 
     def __repr__(self):
         return f"\n\
-        id: {self.id} \n\
-        round: {self.round} \n\
-        parent_id: {self.parent_id} \n\
-        parent_round: {self.parent_round} \n\
-        exec_state_id: {self.exec_state_id} "
+        \t\tid: {self.id} \n\
+        \t\tround: {self.round} \n\
+        \t\tparent_id: {self.parent_id} \n\
+        \t\tparent_round: {self.parent_round} \n\
+        \t\texec_state_id: {self.exec_state_id}\n"
 # // speculated new committed state to vote directly on
 # LedgerCommitInfo
 # │ commit_state_id; // ⊥ if no commit happens when this vote is aggregated to QC
@@ -124,11 +124,12 @@ class QC:
         self.author_signature = safety.sign_u(signatures)
 
     def __repr__(self):
-        return f"vote_info: {self.vote_info} \n\
+        return f"\n\
+                vote_info: {{{self.vote_info}\t\t}} \n\
                 ledger_commit_info: {self.ledger_commit_info} \n\
-                signatures: {self.signatures} \n\
-                author: {self.author} \n\
-                author_signature: {self.author_signature}"
+                author: {self.author}\n"
+                #author_signature: {self.author_signature}"
+                #signatures: {self.signatures} \n\
 # Block
 # │ author; // The author of the block, may not be the same as qc.author after view-change
 # │ round; // The round that generated this proposal
@@ -149,7 +150,7 @@ class Block:
     \tauthor: {self.author} \n\
     \tround: {self.round} \n\
     \tpayload: {self.payload} \n\
-    \tqc: {self.qc} \n\
+    \tqc: {{{self.qc}\t}} \n\
     \tid: {self.id}\n\
     "
 
@@ -218,8 +219,8 @@ class ProposalMsg:
         return f"\n\
     block: {{{self.block}}} \n\
     last_round_tc: {self.last_round_tc} \n\
-    high_commit_qc: {self.high_commit_qc} \n\
-    signature: {self.signature} "
+    high_commit_qc: {{{self.high_commit_qc}\t}} \n\
+    "#signature: {self.signature} "
 
 class SyncRequestMsg:
     def __init__(self, high_commit_qc, high_qc):
