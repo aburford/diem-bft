@@ -113,11 +113,27 @@ class TestExec(process):
     def is_global_commit(block, rnd):
         return lenof(v, v in global_commit_voters(block, rnd + 1), v not in twins) >= f + 1
     
+    # (block, parent) where parent is the one globally direct committed
     def get_global_commits():
-        return setof((link[0], link[2]), link in blocklinks(), is_global_commit(link[0], link[1]))
+        return listof(link[2], link in blocklinks(), is_global_commit(link[0], link[1]))
 
     def safe_round(rnd):
         return each(cert_block in cert_blocks(rnd), has=not some(block in weak_cert_blocks(rnd), has=block != cert_block))
+
+    # check that b1 -->* b2
+    def extends(b1, b2, graph):
+        children = set(graph[b1])
+        if b2 in children:
+            return True
+        # BFS
+        while len(children):
+            c = children.pop()
+            if c not in graph:
+                continue
+            if b2 in graph[c]:
+                return True
+            children.update(graph[c])
+        return False
 
     def run():
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
@@ -136,21 +152,25 @@ class TestExec(process):
                 logger.info('Property 1 upheld')
             # property 2
             global_commits = get_global_commits()
+            links = setof((link[0], link[2]), link in blocklinks())
             graph = {}
-            for block, parent in global_commits:
-                graph[parent] = block
-            chain = []
-            seen = set()
+            for block, parent in links:
+                if parent not in graph:
+                    graph[parent] = [block]
+                else:
+                    graph[parent].append(block)
             violated = False
-            block = None
-            while block in graph:
-                block = graph[block]
-                if block in seen:
-                    violated = True
+            for i in range(len(global_commits) - 1):
+                for j in range(i+1, len(global_commits)):
+                    b1, b2 = global_commits[i], global_commits[j]
+                    b1_first = extends(b1, b2, graph)
+                    b2_first = extends(b2, b1, graph)
+                    if not (b1_first ^ b2_first):
+                        violated = True
+                        break
+                if violated:
                     break
-                seen.add(block)
-                chain.append(block)
-            if violated or len(chain) != len(global_commits):
+            if violated:
                 logger.info('Property 2 violated')
             else:
                 logger.info('Property 2 upheld')
