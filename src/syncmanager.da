@@ -58,14 +58,16 @@ def process_sync_request(sync_request, src):
     multicast(('sync_response', resp), src)
 
 def process_sync_response(sync_response, src):
+    print('%s process_sync_response called' % u)
+    print('%s process_sync_response called' % u)
     if not syncing:
+        print('%s ignoring sync response b/c not syncing' % u)
         return False
     # first catch up high_commit_qc
     if not sync_high_commit_qc(sync_response):
-        print('failed to sync high_commit_qc')
+        print('%s failed to sync high_commit_qc' % u)
     if not sync_high_qc(sync_response):
-        print('failed to sync high_qc')
-
+        print('%s failed to sync high_qc' % u)
     # check if we're done
     if synced():
         print('%s finished syncing up with %s' % (u, src))
@@ -111,7 +113,9 @@ def send_sync_request():
     # so if we received a response, it would end the sync
     # and clear attempted_peers
     assert len(not_tried)
-    multicast(('sync_request', req), not_tried.pop())
+    dst = not_tried.pop()
+    print('%s sending sync request to %s' % (u, dst))
+    multicast(('sync_request', req), dst)
 
 def timeout():
     global syncing

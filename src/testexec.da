@@ -57,15 +57,21 @@ class TestExec(process):
             ident = ident[0]
             id_to_process.setdefault(ident, []).append(r)
         self.partitions = {}
+        self.stopper_round = self.nrounds
         for rnd_num, rnd in enumerate(test_config.rounds):
             parts = {}
+            stopper = True
             for i, p in enumerate(rnd.partition):
+                if len(set([r[0] for r in p])) >= 2 * f + 1:
+                    stopper = False
                 for r in p:
                     # convert d' to d twin process
                     processes = id_to_process[r[0]]
                     proc = processes[len(r)-1]
                     parts[proc] = i
             self.partitions[rnd_num] = parts
+            if stopper:
+                self.stopper_round = min(self.stopper_round, rnd_num)
         for replica in replicas:
             logger.debug(f'[setting up replicatestexec {replica}]')
             ident = self.process_to_id[replica][0]
@@ -135,45 +141,38 @@ class TestExec(process):
             children.update(graph[c])
         return False
 
-    def run():
-        logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
-        start(replicas)
-        # wait until every replica has sent a message in the last round
-        print('test exec waiting for rounds to complete')
-        if await(each(r in replicas, has=some(received(m, from_=_r), has=get_round(m[1]) == nrounds - 1))):
-            print('all rounds completed')
-            logger.debug('[all replicas reached desired round]')
-            done_msg = (('done',), 'executor')
-            super().send(done_msg, replicas)
-            # property 1
-            if not each(rnd in range(nrounds), has=safe_round(rnd)):
-                logger.info('Property 1 violated')
+    def check_safety():
+        # property 1
+        if not each(rnd in range(nrounds), has=safe_round(rnd)):
+            logger.info('Property 1 violated')
+        else:
+            logger.info('Property 1 upheld')
+        # property 2
+        global_commits = get_global_commits()
+        links = setof((link[0], link[2]), link in blocklinks())
+        graph = {}
+        for block, parent in links:
+            if parent not in graph:
+                graph[parent] = [block]
             else:
-                logger.info('Property 1 upheld')
-            # property 2
-            global_commits = get_global_commits()
-            links = setof((link[0], link[2]), link in blocklinks())
-            graph = {}
-            for block, parent in links:
-                if parent not in graph:
-                    graph[parent] = [block]
-                else:
-                    graph[parent].append(block)
-            violated = False
-            for i in range(len(global_commits) - 1):
-                for j in range(i+1, len(global_commits)):
-                    b1, b2 = global_commits[i], global_commits[j]
-                    b1_first = extends(b1, b2, graph)
-                    b2_first = extends(b2, b1, graph)
-                    if not (b1_first ^ b2_first):
-                        violated = True
-                        break
-                if violated:
+                graph[parent].append(block)
+        violated = False
+        for i in range(len(global_commits) - 1):
+            for j in range(i+1, len(global_commits)):
+                b1, b2 = global_commits[i], global_commits[j]
+                b1_first = extends(b1, b2, graph)
+                b2_first = extends(b2, b1, graph)
+                if not (b1_first ^ b2_first):
+                    violated = True
                     break
             if violated:
-                logger.info('Property 2 violated')
-            else:
-                logger.info('Property 2 upheld')
+                break
+        if violated:
+            logger.info('Property 2 violated')
+        else:
+            logger.info('Property 2 upheld')
+
+    def check_liveness():
             # property 3
             # technically the wording of property 3 means this hold true for all rounds after gst, not just the one immediately after
             honest = {procs[0] for ident, procs in id_to_process.items() if len(procs) == 1}
@@ -217,15 +216,45 @@ class TestExec(process):
                 logger.info('Property 4 violated')
             else:
                 logger.info('Property 4 upheld')
+
+
+    def run():
+        logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
+        start(replicas)
+        # wait until every replica has sent a message in the last round
+        print('test exec waiting for rounds to complete')
+        if await(each(r in replicas, has=some(received(m, from_=_r), has=get_round(m[1]) == min(nrounds, stopper_round + 1) - 1))):
+            done_msg = (('done',), 'executor')
+            if stopper_round < nrounds:
+                print('Reached quorumless round')
+                print('Waiting for further progression')
+                if await(False):
+                    print('wtf')
+                    pass
+                elif timeout(transmission_delay_bound * 4 * 7):
+                    print('Done waiting')
+                super().send(done_msg, replicas)
+                if some(received(m), has=get_round(m[1]) and type(get_round(m[1])) == int and get_round(m[1]) > stopper_round):
+                    print('Quorumless progress property violated: a replica progressed past a round with no quorum')
+                else:
+                    print('Quorumless progression property upheld: no replicas progressed passed quorumless round')
+                check_safety()
+            else:
+                print('all rounds completed')
+                super().send(done_msg, replicas)
+                check_safety()
+                check_liveness()
         elif timeout(t):
             logger.info('[entire test case timed out]')
 
-    def can_send(src, dst, r):
+    def can_send(src, dst, r, override=False):
         if r == 'stable':
             return True
         part = partitions[r]
         if part[src] != part[dst]:
             return False
+        if override:
+            return True
         for e in test_config.rounds[r].exceptions:
             if process_to_id[src] == e.src and process_to_id[dst] == e.dst:
                 return False
@@ -282,8 +311,10 @@ class TestExec(process):
                 timeout_override = True
         receivers = id_to_process[dst]
         for receiver in receivers:
-            if timeout_override or can_send(sender, receiver, rnd):
+            if can_send(sender, receiver, rnd, timeout_override):
                 super().send((msg, src), receiver)
+            else:
+                logger.info('dropping %s message from %s to %s' % (msg[0], src, process_to_id[receiver]))
         
 
 def main():
@@ -306,8 +337,8 @@ def main():
         os.mkdir("log")
 
     # broken pending blocktree
-    rounds = [Round('a', [["a", "b", "d", "d'", "c"]], []) for _ in range(4)]
-    rounds += [Round('a', [["a", "b", "d", "d'"], ["c"]], []) for _ in range(3)]
+    rounds = [Round('a', [["a", "b", "d", "d'", "c"]], []) for _ in range(2)]
+    rounds += [Round('a', [["a", "b", "d", "d'"], ["c"]], []) for _ in range(2)]
     rounds += [Round('c', [["a", "d", "d'"], ["b", "c"]], []) for _ in range(1)]
     gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(7)]
     test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.8, 0, 'test', 30, len(rounds)))

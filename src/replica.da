@@ -136,10 +136,8 @@ class Replica(process):
         elif msg_type == 'request' and sender in clients:
             # process request from client
             txn = M[1]
-
             author = txn[1]
             signature = M[2]
-
             if not safety.verify_client(author, signature):
                 # invalid signature, reject the request
                 pass
@@ -244,7 +242,7 @@ class Replica(process):
                     pacemaker.current_round
                 )
                 msg = blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)
-                logger.info('%s sending proposal for round %d with block id %s' % (u, pacemaker.current_round, b.id))
+                logger.info('%s sending proposal for round %d with block id %s\n\tparent block id %s' % (u, pacemaker.current_round, b.id, b.qc and b.qc.vote_info.id))
                 broadcast(('proposal', msg))
             else:
                 logger.info(to_str() + ' has no reason to generate proposal')

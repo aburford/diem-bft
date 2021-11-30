@@ -24,7 +24,7 @@ class PendingBlockTree:
     def add(self, block):
         pending_block = PendingBlock(block)
         if block.qc and block.qc.vote_info.id not in self.id_to_block:
-            print('---------BROKEN PENDING BLOCKTREE (SHOULD NEVER HAPPEN)---------')
+            print('%s ignoring proposal b/c parent block not in block tree' % u)
         self.id_to_block[block.id] = pending_block
         if block.qc != None and \
                 block.qc.vote_info.id in self.id_to_block:
