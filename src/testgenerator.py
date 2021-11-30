@@ -1,17 +1,18 @@
 from collections import namedtuple
 from enum import Enum
 import random
+import json
 from testconfig import *
 
-tests = 1000
-R = 1 # rounds
-P = 114 # partitions
-C = 1000 # round configurations
+tests = 10
+R = 4 # rounds
+P = 2 # partitions
+C = 10 # round configurations
 L = 4 # leader choices
 E = 2 # inter partition drops
 
-N = 7 # nodes
-F = 2 # faulty nodes
+N = 4 # nodes
+F = 0 # faulty nodes
 
 random_partitions = False # random partitions
 random_leaders = False # random leaders
@@ -172,3 +173,28 @@ def test_generator():
     for test in take(replacement_samples(generator, (), R), tests):
         # Pad with seven full-parition rounds for property 4
         yield test + [GST_round()] * 7
+
+def deserialize(test_case):
+    rounds = []
+    for i, rnd in enumerate(json.loads(test_case)):
+        
+        leader = rnd[0]
+        partition = rnd[1]
+        excepts = rnd[2]
+
+        for j, ex in enumerate(excepts):
+            src = ex[0]
+            dst = ex[1]
+            msg_type = MsgType(ex[2])
+            excepts[j] = Except(src, dst, msg_type)
+            
+        rounds.append(Round(leader, partition, excepts))
+        
+    return rounds
+
+with open('twins_tests', 'w') as out_file:
+    for test in test_generator():
+        test_str = json.dumps(test)
+        # test_str = deserialize(test_str)
+        # test_str = f'{str(test_str)}'
+        out_file.write(test_str+"\n")
