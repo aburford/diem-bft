@@ -15,15 +15,18 @@ import importlib
 from config import *
 from datetime import datetime
 from testgenerator import deserialize
+import json
 import testgenerator
 
-class TestExec(process):
-    def setup(test_config):
+class TestCaseExec(process):
+    def setup(dirname, main_exec, test_config):
         # Stoller recommends doing this for macOS where UDP max datagram size is too small so this forces TCP
         # TODO log all of these configurations
+        formatter ='TestCaseExec'
+        self.test_case = test_config.name
+        self.logger = createLogger(__name__, dirname + '/%s_executor.log' % test_case, formatter)
         self.num_replicas = len(test_config.replicas)
         self.num_faulty = len(test_config.twins)
-        self.test_case = test_config.name
         self.f = num_faulty
         self.twins = [ident[:-1] for ident in test_config.twins]
         self.seed = test_config.seed
@@ -31,6 +34,8 @@ class TestExec(process):
         self.nrounds = len(test_config.rounds)
         self.leaders = {i: r.leader for i, r in enumerate(test_config.rounds)}
         self.timeouts = dict()
+        self.gst = test_config.gst
+        logger.info('Test case %s has %d replicas (%d faulty) and %d rounds' % (self.test_case, num_replicas, f, nrounds))
         # repeat leader of last round because vote messages
         # in the last round need to be send to the leader
         # of the next round
@@ -38,9 +43,6 @@ class TestExec(process):
         # one replica in round nrounds which might look like incorrect
         # behavior but i guess is how we'll do it.
         leaders[nrounds] = leaders[nrounds - 1]
-        self.gst = test_config.gst
-        formatter ='TestExec'
-        self.logger = createLogger(__name__, f"log/{test_case}_run.log",formatter)
         self.replicas = list(new(ReplicaTestExec, num=(num_replicas + num_faulty)))
         # used to verify property 4
         self.first_to_enter = dict()
@@ -75,6 +77,10 @@ class TestExec(process):
             self.partitions[rnd_num] = parts
             if stopper:
                 self.stopper_round = min(self.stopper_round, rnd_num)
+        if nrounds == stopper_round:
+            logger.info('No quorumless rounds in this test case')
+        else:
+            logger.info('Round %d will have no quorum' % stopper_round)
         for replica in replicas:
             logger.debug(f'[setting up replicatestexec {replica}]')
             ident = self.process_to_id[replica][0]
@@ -90,7 +96,8 @@ class TestExec(process):
                     num_faulty,
                     leaders,
                     len(test_config.rounds),
-                    test_config.name
+                    test_config.name,
+                    dirname
                 )
             )
         self.t = test_config.timeout
@@ -225,8 +232,8 @@ class TestExec(process):
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
         start(replicas)
         # wait until every replica has sent a message in the last round
+        done_msg = (('done',), 'executor')
         if await(each(r in replicas, has=some(received(m, from_=_r), has=get_round(m[1]) == min(nrounds, stopper_round + 1) - 1))):
-            done_msg = (('done',), 'executor')
             if stopper_round < nrounds:
                 logger.info('Reached quorumless round')
                 logger.info('Waiting for further progression')
@@ -242,12 +249,14 @@ class TestExec(process):
                     logger.info('Quorumless progress property upheld: no replicas progressed passed quorumless round')
                 check_safety()
             else:
-                logger.info('All rounds completed')
                 super().send(done_msg, replicas)
+                logger.info('All rounds completed')
                 check_safety()
                 check_liveness()
         elif timeout(t):
-            logger.info('[entire test case timed out]')
+            logger.info('Entire test case timed out')
+            super().send(done_msg, replicas)
+        send(('done',), to=main_exec)
 
     def can_send(src, dst, r, override=False):
         if r == 'stable':
@@ -318,6 +327,41 @@ class TestExec(process):
             else:
                 logger.info('dropping %s message from %s to %s' % (msg[0], src, process_to_id[receiver]))
         
+class MainExec(process):
+    def setup(fname):
+        self.test_cases = []
+        self.dirname = 'log/' + fname
+        if not(os.path.isdir(dirname)):
+            os.mkdir(dirname)
+        with open(fname, 'r') as file:
+            originals = json.loads(file.readline())
+            twins = json.loads(file.readline())
+            for idx,test_case in enumerate(file):             
+                rounds = deserialize(test_case)
+                transmission_delay_bound = 0.8
+                seed = 0
+                name = f'test{idx}'
+                timeout = 30
+                gst = len(rounds) - 7
+
+                new_test = TestConfig(originals, twins, rounds,transmission_delay_bound,seed,name,timeout,gst)          # produce 1 testconfig() namedtuple for each test case
+                test_cases.append(new_test)
+        formatter = 'MainExec'
+        self.logger = createLogger(__name__, dirname + '/main.log',formatter)
+        logger.info('Parsed %d test cases from %s' % (len(test_cases), fname))
+
+    def run():
+        i = 0
+        for i, test_config in enumerate(test_cases):
+            # DEBUGGING:
+            #if i == 2:
+            #    break
+            r = new(TestCaseExec, (dirname, self, test_config))
+            logger.info('Starting test case %s' % test_config.name)
+            start(r)
+            await(countof(m, received(m), m == ('done',)) == i + 1)
+            logger.info('Finished test case %s' % test_config.name)
+        logger.info('Finished running all test cases from %s' % fname)
 
 def main():
     config(channel = 'reliable')
@@ -343,20 +387,6 @@ def main():
     #rounds += [Round('c', [["a", "d", "d'"], ["b", "c"]], []) for _ in range(1)]
     #gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(7)]
     #test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.8, 0, 'test', 30, len(rounds)))
-    test_cases = []
-    with open('twins_tests', 'r') as file:
-        for idx,test_case in enumerate(file):             
-            originals = testgenerator.originals
-            twins = testgenerator.twins
-            rounds = deserialize(test_case)
-            transmission_delay_bound = 0.8
-            seed = 0
-            name = f'test{idx}'
-            timeout = 30
-            gst = len(rounds) - 7
-
-            new_test = TestConfig(originals, twins, rounds,transmission_delay_bound,seed,name,timeout,gst)          # produce 1 testconfig() namedtuple for each test case
-            test_cases.append(new_test)
 
     # manually create a test case
     # # rounds = [Round('a', [["a", "b", "d"], ["c", "d'"]], [])]
@@ -364,7 +394,8 @@ def main():
     # rounds += [Round('a', [["a", "d", "d'"], ["b", "c"]], []) for _ in range(1)]
     # gst = [Round('a', [["a", "b", "c", "d", "d'"]], []) for _ in range(7)]
     # test_cases.append(TestConfig(['a','b','c','d'], ["d'"], rounds + gst, 0.8, 0, 'test', 30, len(rounds)))
-    print(len(test_cases))
-    for test_config in test_cases:
-        r = new(TestExec, (test_config,))
-        start(r)
+    if len(sys.argv) != 2:
+        print('Usage: testexec.da INPUT_FILE')
+        sys.exit(1)
+    testexec = new(MainExec, (sys.argv[1],))
+    start(testexec)

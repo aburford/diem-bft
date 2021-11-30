@@ -2,6 +2,7 @@ from collections import namedtuple
 from enum import Enum
 import random
 import json
+import sys
 from testconfig import *
 
 tests = 1000
@@ -23,6 +24,11 @@ allow_non_faulty_leaders = True
 all_partitions = None
 all_configurations = None
 
+originals = None
+twins = None
+replicas = None
+eligible_leaders = None
+
 # TODO: fix partition limit and add a hook for quorumless partitions
 
 BucketConfig = namedtuple('BucketConfig', ('bucket', 'excepts'))
@@ -41,14 +47,6 @@ def twin(replica):
     else:
         return replica + '\''
 
-originals = [chr(ord('a')+j) for j in range(N)]
-twins = [twin(replica) for replica in take(originals, F)]
-replicas = originals + twins
-
-if allow_non_faulty_leaders:
-    eligible_leaders = replicas
-else:
-    eligible_leaders = [replica for replica in take(originals, F)]
 
 # Enumerates all possible intra-partition message drops
 def excepts(endpoints):
@@ -98,9 +96,9 @@ def partition_gen(n):
         # Recursively generate partitions for the n - 1 other replicas
         for partition in partition_gen(n - 1):
             for i, bucket in enumerate(partition):
-                # Twins are forbidden from being in the same bucket
-                if twin(replicas[n - 1]) in bucket:
-                    continue
+                # Twins are not forbidden from being in the same bucket
+                #if twin(replicas[n - 1]) in bucket:
+                #    continue
                 new_partition = partition.copy()
                 new_partition[i] = bucket.copy()
                 new_partition[i].append(replicas[n - 1])
@@ -163,7 +161,7 @@ def random_round_gen():
 # Full-partition round simulating GST (no message drops)
 def GST_round():
     i = iter(replicas)
-    return Round(replicas[0], [originals, twins], [])
+    return Round(replicas[0], [originals + twins], [])
 
 def test_generator():
     if random_configurations:
@@ -192,9 +190,33 @@ def deserialize(test_case):
         
     return rounds
 
-with open('twins_tests', 'w') as out_file:
-    for test in test_generator():
-        test_str = json.dumps(test)
-        # test_str = deserialize(test_str)
-        # test_str = f'{str(test_str)}'
-        out_file.write(test_str+"\n")
+def main():
+    global originals
+    global twins
+    global replicas
+    global eligible_leaders
+    originals = [chr(ord('a')+j) for j in range(N)]
+    twins = [twin(replica) for replica in take(originals, F)]
+    replicas = originals + twins
+    
+    if allow_non_faulty_leaders:
+        eligible_leaders = replicas
+    else:
+        eligible_leaders = [replica for replica in take(originals, F)]
+    
+    if len(sys.argv) != 2:
+        print('Usage: testgenerator.py OUTPUT_FILE')
+        sys.exit(1)
+    with open(sys.argv[1], 'w') as out_file:
+        json.dump(originals, out_file)
+        out_file.write('\n')
+        json.dump(twins, out_file)
+        out_file.write('\n')
+        for test in test_generator():
+            test_str = json.dumps(test)
+            # test_str = deserialize(test_str)
+            # test_str = f'{str(test_str)}'
+            out_file.write(test_str+"\n")
+
+if __name__  == '__main__':
+    main()
