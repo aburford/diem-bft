@@ -24,7 +24,7 @@ class TestExec(process):
         self.num_faulty = len(test_config.twins)
         self.test_case = test_config.name
         self.f = num_faulty
-        self.twins = [ident[0] for ident in test_config.twins]
+        self.twins = [ident[:-1] for ident in test_config.twins]
         self.seed = test_config.seed
         self.transmission_delay_bound = test_config.transmission_delay_bound
         self.nrounds = len(test_config.rounds)
@@ -56,7 +56,8 @@ class TestExec(process):
         self.id_to_process = {}
         for r, ident in zip(replicas, (test_config.replicas + test_config.twins)):
             process_to_id[r] = ident
-            ident = ident[0]
+            if "'" in ident:
+                ident = ident[:-1]
             id_to_process.setdefault(ident, []).append(r)
         self.partitions = {}
         for rnd_num, rnd in enumerate(test_config.rounds):
@@ -64,13 +65,21 @@ class TestExec(process):
             for i, p in enumerate(rnd.partition):
                 for r in p:
                     # convert d' to d twin process
-                    processes = id_to_process[r[0]]
-                    proc = processes[len(r)-1]
+                    processes = None
+                    proc = None
+                    if "'" in r:
+                        processes = id_to_process[r[:-1]]
+                        proc = processes[1]
+                    else:
+                        processes = id_to_process[r]
+                        proc = processes[0]
                     parts[proc] = i
             self.partitions[rnd_num] = parts
         for replica in replicas:
             logger.debug(f'[setting up replicatestexec {replica}]')
-            ident = self.process_to_id[replica][0]
+            ident = self.process_to_id[replica][:]
+            if "'" in ident:
+                ident = self.process_to_id[replica][:-1]
             setup(
                 replica, (
                     self,

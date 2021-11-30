@@ -4,15 +4,15 @@ import random
 import json
 from testconfig import *
 
-tests = 10
-R = 4 # rounds
-P = 2 # partitions
-C = 10 # round configurations
+tests = 1000
+R = 1 # rounds
+P = 114 # partitions
+C = 1000 # round configurations
 L = 4 # leader choices
 E = 2 # inter partition drops
 
-N = 4 # nodes
-F = 0 # faulty nodes
+N = 7 # nodes
+F = 2 # faulty nodes
 
 random_partitions = False # random partitions
 random_leaders = False # random leaders
