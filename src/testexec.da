@@ -18,6 +18,7 @@ from datetime import datetime
 class TestExec(process):
     def setup(test_config):
         # Stoller recommends doing this for macOS where UDP max datagram size is too small so this forces TCP
+        # TODO log all of these configurations
         self.num_replicas = len(test_config.replicas)
         self.num_faulty = len(test_config.twins)
         self.test_case = test_config.name
@@ -36,7 +37,7 @@ class TestExec(process):
         # behavior but i guess is how we'll do it.
         leaders[nrounds] = leaders[nrounds - 1]
         self.gst = test_config.gst
-        formatter ='%(asctime)s:%(message)s'
+        formatter ='TestExec'
         self.logger = createLogger(__name__, f"log/{test_case}_run.log",formatter)
         self.replicas = list(new(ReplicaTestExec, num=(num_replicas + num_faulty)))
         # used to verify property 4
@@ -222,25 +223,24 @@ class TestExec(process):
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
         start(replicas)
         # wait until every replica has sent a message in the last round
-        print('test exec waiting for rounds to complete')
         if await(each(r in replicas, has=some(received(m, from_=_r), has=get_round(m[1]) == min(nrounds, stopper_round + 1) - 1))):
             done_msg = (('done',), 'executor')
             if stopper_round < nrounds:
-                print('Reached quorumless round')
-                print('Waiting for further progression')
+                logger.info('Reached quorumless round')
+                logger.info('Waiting for further progression')
                 if await(False):
-                    print('wtf')
+                    logger.info('wtf')
                     pass
                 elif timeout(transmission_delay_bound * 4 * 7):
-                    print('Done waiting')
+                    logger.info('Done waiting')
                 super().send(done_msg, replicas)
                 if some(received(m), has=get_round(m[1]) and type(get_round(m[1])) == int and get_round(m[1]) > stopper_round):
-                    print('Quorumless progress property violated: a replica progressed past a round with no quorum')
+                    logger.info('Quorumless progress property violated: a replica progressed past a round with no quorum')
                 else:
-                    print('Quorumless progression property upheld: no replicas progressed passed quorumless round')
+                    logger.info('Quorumless progress property upheld: no replicas progressed passed quorumless round')
                 check_safety()
             else:
-                print('all rounds completed')
+                logger.info('All rounds completed')
                 super().send(done_msg, replicas)
                 check_safety()
                 check_liveness()

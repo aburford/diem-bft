@@ -52,11 +52,13 @@ class Replica(process):
         syncmanager.handle_msg = handle_msg
         # logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
         #     format= '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w') 
-        formatter = '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s'
+        formatter = to_str()
         self.logger = createLogger(__name__,f"log/{testcase_name}_{to_str()}.log",formatter)
         pacemaker.logger = self.logger
         ledger.logger = self.logger
         safety.logger = self.logger
+        blocktree.logger = self.logger
+        syncmanager.logger = self.logger
 
         logger.debug(f"[Initial settings for current replica]: \n\
         public keys are: {public_keys}\n\
