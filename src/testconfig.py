@@ -8,7 +8,7 @@ from enum import Enum
 TestConfig = namedtuple('TestConfig', ['replicas', 'twins', 'rounds', 'transmission_delay_bound', 'seed', 'name', 'timeout', 'gst'], defaults=(None))
 Round = namedtuple('Round', ['leader', 'partition', 'exceptions'])
 Except = namedtuple('Except', ['src', 'dst', 'msg_type'])
-class MsgType(Enum):
+class MsgType(str,Enum):
 	Proposal = 'proposal'
 	TimeOut = 'timeout'
 	Vote = 'vote'

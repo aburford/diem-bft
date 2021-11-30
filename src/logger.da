@@ -1,5 +1,6 @@
 import sys
 from datetime import datetime
+import logging
 
 class PosLogger:
     def __init__(self, fname, prefix):
@@ -19,5 +20,18 @@ class PosLogger:
         self.file.flush()
 
 def createLogger(name, file_name,formatter):
-    logger = PosLogger(file_name, formatter)
+    custom_logger = True
+    if custom_logger:
+        logger = PosLogger(file_name, formatter)
+    else:
+        logger = logging.getLogger(name)
+        logger.setLevel(logging.DEBUG)
+        file_handler = logging.FileHandler(file_name, mode='w')
+        file_handler.setLevel(logging.DEBUG)    
+        file_handler.setFormatter(logging.Formatter(formatter))
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging.INFO)    
+        file_handler.setFormatter(logging.Formatter(formatter))
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
     return logger
