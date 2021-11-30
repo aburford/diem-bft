@@ -1,34 +1,38 @@
 from collections import namedtuple
 from enum import Enum
 import random
+from testconfig import *
 
 tests = 1000
-R = 6 # rounds
+R = 1 # rounds
 P = 114 # partitions
 C = 1000 # round configurations
 L = 4 # leader choices
 E = 2 # inter partition drops
 
 N = 7 # nodes
-F = 0 # faulty nodes
+F = 2 # faulty nodes
 
 random_partitions = False # random partitions
 random_leaders = False # random leaders
 random_configurations = False # random per-round configurations
 
-allow_faulty_leaders = True
+allow_non_faulty_leaders = True
 
 all_partitions = None
 all_configurations = None
 
+# TODO: fix partition limit and add a hook for quorumless partitions
+
+BucketConfig = namedtuple('BucketConfig', ('bucket', 'excepts'))
+
 # Take the first n things from the generator
 def take(generator, n):
     i = 0
-    for thing in generator:
-        yield thing
-        i += 1
+    for (i, thing) in enumerate(generator):
         if i >= n:
             break
+        yield thing
 
 def twin(replica):
     if '\'' in replica:
@@ -36,17 +40,14 @@ def twin(replica):
     else:
         return replica + '\''
 
-replicas = ['replica' + str(j) for j in range(N)]
-replicas += [twin(replica) for replica in take(replicas, F)]
+originals = ['replica' + str(j) for j in range(N)]
+twins = [twin(replica) for replica in take(originals, F)]
+replicas = originals + twins
 
-class MsgType(Enum):
-    Proposal = 'proposal'
-    TimeOut = 'timeout'
-    Vote = 'vote'
-    Wildcard = '*' # matches all message types
-
-BucketConfig = namedtuple('BucketConfig', ('leader', 'bucket', 'excepts'))
-Except = namedtuple('Except', ('src', 'dst', 'msg_type'))
+if allow_non_faulty_leaders:
+    eligible_leaders = replicas
+else:
+    eligible_leaders = [replica for replica in take(originals, F)]
 
 # Enumerates all possible intra-partition message drops
 def excepts(endpoints):
@@ -115,11 +116,7 @@ def partitions():
 
 # Randomly or deterministically generates leaders for a bucket. "Bucket" is explained in the
 # next comment
-def bucket_leaders(bucket):
-    if allow_faulty_leaders:
-        eligible_leaders = replicas
-    else:
-        eligible_leaders = [replica for replica in bucket if not(twin(replica) in replicas)]
+def leaders():
     if random_leaders:
         while True:
             yield random.choice(eligible_leaders)
@@ -130,58 +127,42 @@ def bucket_leaders(bucket):
 # Generates leaders and exceptions for a set within a partition. "Set within a partition"
 # is referred to as a "bucket" in the pseudocode. The authors of the Twins paper overload
 # the word "partition" to refer to both the partition and the elements within it
-def bucket_configs(partition):
+def partition_except_sets(partition):
     if len(partition) == 0:
         yield []
     else:
         bucket = [replica for replica in partition[0]]
-        for bucket_config_set in bucket_configs(partition[1:]):
-            other_leaders = [bc.leader for bc in bucket_config_set]
-            for leader in take(bucket_leaders(bucket), L):
-                skip = False
-                for other_leader in other_leaders:
-                    # If the twin of a leader of another partition is in this bucket, it
-                    # must be the leader
-                    if twin(other_leader) in bucket:
-                        skip = True
-                        for except_sample in take(except_samples(bucket), E):
-                            yield [BucketConfig(twin(other_leader), bucket, except_sample)] + bucket_config_set
-                        break
-                if skip:
-                    break
-                for except_sample in take(except_samples(bucket), E):
-                    yield [BucketConfig(leader, bucket, except_sample)] + bucket_config_set
+        for partition_except_set in partition_except_sets(partition[1:]):
+            for except_sample in take(except_samples(bucket), E):
+                yield except_sample + partition_except_set
 
 # Deterministically generate the round configurations. Partitions and leaders might still
 # be random if random_partitions or random_leaders is true
 def round_gen():
     i = 0
-    for partition in take(partitions(), P):
-        for bucket_config_set in bucket_configs(partition):
-            i += 1
-            if i >= C:
-                return
-            yield bucket_config_set
+    for leader in take(leaders(), L):
+        for partition in take(partitions(), P):
+            for partition_except_set in partition_except_sets(partition):
+                i += 1
+                if i >= C:
+                    return
+                yield Round(leader, partition, partition_except_set)
 
 # Generates a round configuration at random. If the partitions are deterministic, it
 # samples from the first P partitions. If the leaders are deterministic, it samples from
 # the first L leaders
 def random_round_gen():
     global all_configurations
+
     if all_configurations == None:
         all_configurations = [configuration for configuration in round_gen()]
-
     while True:
         yield random.choice(all_configurations)
 
 # Full-partition round simulating GST (no message drops)
 def GST_round():
     i = iter(replicas)
-    originals = [replica for replica in take(i, N)]
-    twins = [replica for replica in take(i, F)]
-    return [
-        BucketConfig(bucket[0], bucket, []) for bucket in (originals, twins) if len(bucket) > 0
-    ]
+    return Round(replicas[0], [originals, twins], [])
 
 def test_generator():
     if random_configurations:
