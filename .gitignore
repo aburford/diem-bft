@@ -2,5 +2,4 @@ __pycache__/
 ledger/
 log/
 
-*.py
 !configs/__init__.py
