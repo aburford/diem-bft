@@ -7,7 +7,7 @@ from testconfig import *
 
 tests = 1000
 R = 1 # rounds
-P = 114 # partitions
+P = 2 # partitions
 C = 1000 # round configurations
 L = 4 # leader choices
 E = 2 # inter partition drops
@@ -20,6 +20,7 @@ random_leaders = False # random leaders
 random_configurations = False # random per-round configurations
 
 allow_non_faulty_leaders = True
+allow_quorumless_partitions = False
 
 all_partitions = None
 all_configurations = None
@@ -28,10 +29,6 @@ originals = None
 twins = None
 replicas = None
 eligible_leaders = None
-
-# TODO: fix partition limit and add a hook for quorumless partitions
-
-BucketConfig = namedtuple('BucketConfig', ('bucket', 'excepts'))
 
 # Take the first n things from the generator
 def take(generator, n):
@@ -83,27 +80,33 @@ def except_samples(bucket):
 def random_partition_gen():
     global all_partitions
     if all_partitions == None:
-        all_partitions = [partition for partition in partition_gen(len(replicas))]
+        all_partitions = [partition for partition in partition_gen_quorum()]
 
     while True:
         yield random.choice(all_partitions)
 
 # Generate partitions deterministically
-def partition_gen(n):
-    if n == 1:
-        yield [[replicas[0]]]
+def partition_gen(n, k):
+    if n == 0:
+        yield []
+    if k == 0 or n < k:
+        return
     else:
         # Recursively generate partitions for the n - 1 other replicas
-        for partition in partition_gen(n - 1):
+        for partition in partition_gen(n - 1, k - 1):
+            partition.append([replicas[n - 1]])
+            yield partition
+        for partition in partition_gen(n - 1, k):
             for i, bucket in enumerate(partition):
-                # Twins are not forbidden from being in the same bucket
-                #if twin(replicas[n - 1]) in bucket:
-                #    continue
                 new_partition = partition.copy()
                 new_partition[i] = bucket.copy()
                 new_partition[i].append(replicas[n - 1])
                 yield new_partition
-            partition.append([replicas[n - 1]])
+
+def partition_gen_quorum():
+    for partition in partition_gen(len(replicas), P):
+        if max([len(bucket) for bucket in partition]) > 2 * F \
+                or allow_quorumless_partitions:
             yield partition
 
 # Randomly or deterministically generates partitions
@@ -111,7 +114,7 @@ def partitions():
     if random_partitions:
         return random_partition_gen()
     else:
-        return partition_gen(len(replicas))
+        return partition_gen_quorum()
 
 # Randomly or deterministically generates leaders for a bucket. "Bucket" is explained in the
 # next comment
@@ -160,7 +163,6 @@ def random_round_gen():
 
 # Full-partition round simulating GST (no message drops)
 def GST_round():
-    i = iter(replicas)
     return Round(replicas[0], [originals + twins], [])
 
 def test_generator():
