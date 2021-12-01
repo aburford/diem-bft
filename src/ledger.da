@@ -112,7 +112,7 @@ def commit(block_id):
         logger.debug(f"Committing the pending prefix of block id = [{block_id}]")
         logger.debug(f"ledgerstate for block:", state)
         if not state.parent_state_id:
-            logger.info('---committing genesis block----:', state.block_id)
+            logger.debug('committing genesis block:', state.block_id)
         else:
             logger.debug('committing and removing from pending block to state', state.block_id)
         commit_prefix(state)

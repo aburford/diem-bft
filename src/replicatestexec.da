@@ -16,11 +16,13 @@ class ReplicaTestExec(process, Replica):
         private_key,
         ident,
         seed,
+        personal_seed,
         num_faulty,
         leaders,
         nrounds,
         testcase_name,
-        exec_config_name
+        exec_config_name,
+        bugs
     ):
         super().setup(
             executor,
@@ -32,9 +34,9 @@ class ReplicaTestExec(process, Replica):
             seed,
             num_faulty,
             testcase_name,
-            exec_config_name
+            exec_config_name,
+            bugs
         )
-        personal_seed = random.random()
         random.seed(seed)
         txns = []
         alphabet = [chr(x) for x in range(ord('a'), ord('z') + 1)]
@@ -44,6 +46,7 @@ class ReplicaTestExec(process, Replica):
             txns.append((uuid, ''.join(txn)))
         random.seed(personal_seed)
         random.shuffle(txns)
+        random.seed(seed)
         for uuid, txn in txns:
             mempool.requests[uuid] = ((txn, 'client0', uuid), None)
         leaderelection.reputation_leaders = leaders

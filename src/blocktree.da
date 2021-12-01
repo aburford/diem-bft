@@ -3,6 +3,7 @@ import nacl.hash
 import pickle
 import safety
 logger = None
+bugs = None
 HASHER = nacl.hash.sha256
 def hash(*payloads):
     payloads_bytes = pickle.dumps(payloads)
@@ -314,7 +315,8 @@ def process_vote(v):
     if not(vote_idx in pending_votes):
         pending_votes[vote_idx] = set()
     pending_votes[vote_idx].add((v.sender, v.signature))
-    if len(pending_votes[vote_idx]) == 2 * f + 1:
+    qsize = 2*f if 'small_quorum' in bugs else 2 * f + 1
+    if len(pending_votes[vote_idx]) == qsize:
         logger.debug('reached quorum')
         return QC(
             v.vote_info,

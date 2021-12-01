@@ -110,7 +110,9 @@ def send_sync_request():
     # there must be non faulty nodes in signators
     # so if we received a response, it would end the sync
     # and clear attempted_peers
-    assert len(not_tried)
+    if not len(not_tried):
+        logger.info('SYNC ERROR: failed to sync up with all available peers')
+        return
     # deterministically choose a dst
     # but if we timeout then we choose a different one next round
     dst = sorted(list(not_tried))[pacemaker.current_round % len(not_tried)]

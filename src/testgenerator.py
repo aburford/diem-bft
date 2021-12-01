@@ -214,6 +214,9 @@ def main():
         out_file.write('\n')
         json.dump(twins, out_file)
         out_file.write('\n')
+        # no bugs
+        json.dump(set(), out_file)
+        out_file.write('\n')
         for test in test_generator():
             test_str = json.dumps(test)
             # test_str = deserialize(test_str)

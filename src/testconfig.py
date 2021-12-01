@@ -5,7 +5,7 @@ from enum import Enum
 # TestConfig.twins = ["d'"]
 # use d and d' in the partitions
 # TestConfig.rounds[0].partitions = [["a", "b", "d"], ["c", "d'"]]
-TestConfig = namedtuple('TestConfig', ['replicas', 'twins', 'rounds', 'transmission_delay_bound', 'seed', 'name', 'timeout', 'gst'], defaults=(None))
+TestConfig = namedtuple('TestConfig', ['replicas', 'twins', 'rounds', 'transmission_delay_bound', 'seed', 'name', 'timeout', 'gst', 'bugs'], defaults=(None))
 Round = namedtuple('Round', ['leader', 'partition', 'exceptions'])
 Except = namedtuple('Except', ['src', 'dst', 'msg_type'])
 class MsgType(str,Enum):

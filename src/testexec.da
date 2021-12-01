@@ -93,11 +93,13 @@ class TestCaseExec(process):
                     private_keys[ident],
                     ident,
                     seed,
+                    random.random(),
                     num_faulty,
                     leaders,
                     len(test_config.rounds),
                     test_config.name,
-                    exec_config_name
+                    exec_config_name,
+                    test_config.bugs
                 )
             )
         self.t = test_config.timeout
@@ -216,6 +218,10 @@ class TestCaseExec(process):
                         proc = id_to_process[ident][0]
                         # should always have length of 1 anyways
                         log_times = sorted(listof(time, received(('executor', ('committed', (_block_id, _rnd, time))), from_=_proc)))
+                        if not len(log_times):
+                            logger.info('Block %s proposed during GST never committed by %s' % (block_id, ident))
+                            violated = True
+                            break
                         log_time = log_times[0]
                         if (log_time - time).total_seconds() > 7 * transmission_delay_bound:
                             violated = True
@@ -233,20 +239,15 @@ class TestCaseExec(process):
         start(replicas)
         # wait until every replica has sent a message in the last round
         done_msg = (('done',), 'executor')
-        if await(each(r in replicas, has=some(received(m, from_=_r), has=get_round(m[1]) == min(nrounds, stopper_round + 1) - 1))):
+        if await(each(r in replicas, has=some(received(m, from_=_r), has=type(get_round(m[1])) == int and get_round(m[1]) >= min(nrounds, stopper_round + 1) - 1))):
             if stopper_round < nrounds:
                 logger.info('Reached quorumless round')
                 logger.info('Waiting for further progression')
-                if await(False):
-                    logger.info('wtf')
-                    pass
-                elif timeout(transmission_delay_bound * 4 * 7):
-                    logger.info('Done waiting')
-                super().send(done_msg, replicas)
-                if some(received(m), has=get_round(m[1]) and type(get_round(m[1])) == int and get_round(m[1]) > stopper_round):
+                if await(some(received(m), has=get_round(m[1]) and type(get_round(m[1])) == int and get_round(m[1]) > stopper_round)):
                     logger.info('Quorumless progress property violated: a replica progressed past a round with no quorum')
-                else:
+                elif timeout(transmission_delay_bound * 4 * 7):
                     logger.info('Quorumless progress property upheld: no replicas progressed passed quorumless round')
+                super().send(done_msg, replicas)
                 check_safety()
             else:
                 super().send(done_msg, replicas)
@@ -356,6 +357,7 @@ class MainExec(process):
             with open(fname, 'r') as file:
                 originals = json.loads(file.readline())
                 twins = json.loads(file.readline())
+                bugs = json.loads(file.readlines())
                 for idx,test_case in enumerate(file):             
                     rounds = deserialize(test_case)
                     transmission_delay_bound = 0.8
@@ -364,7 +366,7 @@ class MainExec(process):
                     timeout = 30
                     gst = len(rounds) - 7
 
-                    new_test = TestConfig(originals, twins, rounds,transmission_delay_bound,seed,name,timeout,gst)          # produce 1 testconfig() namedtuple for each test case
+                    new_test = TestConfig(originals, twins, rounds,transmission_delay_bound,seed,name,timeout,gst,bugs)          # produce 1 testconfig() namedtuple for each test case
                     test_cases.append(new_test)
         else:
             logger.info('we only support .py and .json configuration files')

@@ -24,7 +24,8 @@ class Replica(process):
         seed,
         num_faulty,
         testcase_name,
-        exec_config_name
+        exec_config_name,
+        bugs
     ):
         self.done = False
         self.u = to_str()
@@ -43,6 +44,7 @@ class Replica(process):
         pacemaker.broadcast = broadcast
         blocktree.u = to_str()
         blocktree.f = num_faulty
+        blocktree.bugs = bugs
         mempool.u = to_str()
         mempool.multicast = multicast
         ledger.u = to_str()
@@ -78,7 +80,6 @@ class Replica(process):
         elif attr == 'leader':
             leaderelection.reputation_leaders[pacemaker.current_round + 1] = val
 
-    # TODO: send should only be called with string identifiers
     def multicast(msg, to):
         if isinstance(to, set) or isinstance(to, list):
             for dst in to:
@@ -94,6 +95,7 @@ class Replica(process):
 
     # loop: wait for next event M ; Main.start_event_processing(M)
     # if M is a local timeout then Pacemaker.local_timeout_round()
+    # TODO stop timeout loops
     def run():
         logger.debug("[started running]")
         process_new_round_event(None)
