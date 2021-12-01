@@ -126,6 +126,9 @@ def make_vote(b, last_tc):
         else:
             parent_id = b.qc.vote_info.id
         # VoteInfo carries the potential QC info with ids and rounds of the parent QC
+        logger.debug('ledger.pending_block_to_state:', ledger.pending_block_to_state)
+        logger.debug('ledger.id_to_pending:', ledger.id_to_pending)
+        logger.debug('ledger.committed_blocks:', ledger.committed_blocks)
         vote_info = blocktree.VoteInfo(
             block_id = b.id,
             vote_round = b.round,

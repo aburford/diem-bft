@@ -24,14 +24,14 @@ class Replica(process):
         seed,
         num_faulty,
         testcase_name,
-        dirname
+        exec_config_name
     ):
         self.done = False
         self.u = to_str()
         safety.public_keys = public_keys
         safety.private_key = private_key
         safety.u = to_str()
-        ledger.open_ledger(testcase_name + "-" + to_str())
+        ledger.open_ledger('ledger/' + exec_config_name + '/' + testcase_name + "-" + to_str())
         ledger.validators = len(replica_ids)
 
         recent_proposals = deque()
@@ -54,7 +54,7 @@ class Replica(process):
         # logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
         #     format= '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w') 
         formatter = to_str()
-        self.logger = createLogger(__name__, dirname + '/%s_%s.log' % (testcase_name, to_str()), formatter)
+        self.logger = createLogger(__name__, 'log/' + exec_config_name + '/%s_%s.log' % (testcase_name, to_str()), formatter)
         pacemaker.logger = self.logger
         ledger.logger = self.logger
         safety.logger = self.logger
@@ -132,11 +132,7 @@ class Replica(process):
             logger.info('%s received %s message from %s' % (to_str(), M[0], sender))
             syncmanager.process_sync_request(M[1], sender)
         elif msg_type == 'sync_response':
-            logger.debug('received sync_response')
-            logger.debug(M)
-            logger.debug('highqcpath:', M[1].high_qc_path)
-            # TODO high_qc_path can be empty??
-            logger.info('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], sender, M[1].high_qc_path[-1].round))
+            logger.info('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], sender, M[1].high_qc_path[-1].round if M[1].high_qc_path else -1))
             syncmanager.process_sync_response(M[1], sender)
         elif msg_type == 'done':
             done = True

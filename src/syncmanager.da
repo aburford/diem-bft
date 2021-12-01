@@ -6,7 +6,6 @@ import pacemaker
 syncing = False
 syncing_high_commit_qc = None
 syncing_high_qc = None
-# TODO are these ProcessID objects or to_str() ids?
 attempted_peers = set()
 msg_queue = []
 # set by Replica
@@ -15,8 +14,6 @@ multicast = None
 process_certificate_qc = None
 handle_msg = None
 logger = None
-
-# TODO how is round incremented if we catch up on rounds with timeouts in between?
 
 # return True if we need to sync up before processing this proposal
 def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):
@@ -114,7 +111,9 @@ def send_sync_request():
     # so if we received a response, it would end the sync
     # and clear attempted_peers
     assert len(not_tried)
-    dst = not_tried.pop()
+    # deterministically choose a dst
+    # but if we timeout then we choose a different one next round
+    dst = sorted(list(not_tried))[pacemaker.current_round % len(not_tried)]
     logger.info('%s sending sync request to %s' % (u, dst))
     multicast(('sync_request', req), dst)
 
@@ -144,6 +143,7 @@ def sync_high_commit_qc(sync_response):
         if block.qc and not blocktree.pending_block_tree.contains(block.qc.vote_info.id):
             logger.info('------not sure why this happens--------')
             return False
+        logger.debug('syncmanager commit chain processing block', block.id)
         process_certificate_qc(block.qc)
         blocktree.execute_and_insert(block)
     return True

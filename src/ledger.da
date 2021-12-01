@@ -18,10 +18,8 @@ ledger_file = None
 def open_ledger(filename):
     global ledger_file
 
-    if not(os.path.isdir("ledger")):
-        os.mkdir("ledger")
     # TODO: get LEDGER_ID filename from configuration
-    ledger_file = open("ledger/" + filename, "w+")
+    ledger_file = open(filename, "w+")
 
 def close_ledger():
     ledger_file.close()
@@ -41,14 +39,27 @@ class LedgerState:
         else:
             # We are the genesis block. Set self.parent_state_id so
             # that HASHER doesn't yell at us
+            if prev_block_id:
+                logger.info('-----error prev_block_id %s is not in pending_block_to_state  %s' % (prev_block_id, pending_block_to_state))
             self.parent_state_id = b'' 
 
         self.id = HASHER(
             self.parent_state_id + self.commands.encode('utf-8')
         )
 
+    def __repr__(self):
+        return f"prev_block_id: {self.prev_block_id}\n\
+                 block_id: {self.block_id}\n\
+                 txns: {self.txns}\n\
+                 commands: {self.commands}\n\
+                 parent_state_id: {self.parent_state_id}\n\
+                 id: {self.id}"
+
 # speculate(prev_block_id, block_id, txns) // apply txns speculatively
 def speculate(prev_block_id, block_id, txns):
+    if block_id in pending_block_to_state:
+        logger.debug('ignoring block that is already speculated', block_id)
+        return
     state = LedgerState(
         prev_block_id,
         block_id,
@@ -98,8 +109,13 @@ def commit(block_id):
     if block_id in pending_block_to_state:
         state = pending_block_to_state[block_id]
         # Commit the pending prefix
+        logger.debug(f"Committing the pending prefix of block id = [{block_id}]")
+        logger.debug(f"ledgerstate for block:", state)
+        if not state.parent_state_id:
+            logger.info('---committing genesis block----:', state.block_id)
+        else:
+            logger.debug('committing and removing from pending block to state', state.block_id)
         commit_prefix(state)
-        logger.debug(f"Commit the pending prefix of block id = [{block_id}]")
         # Prune the other branches  
         new_pending = {}
         dfs(new_pending, state)

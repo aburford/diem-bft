@@ -19,12 +19,12 @@ import json
 import testgenerator
 
 class TestCaseExec(process):
-    def setup(dirname, main_exec, test_config):
+    def setup(exec_config_name, main_exec, test_config):
         # Stoller recommends doing this for macOS where UDP max datagram size is too small so this forces TCP
         # TODO log all of these configurations
         formatter ='TestCaseExec'
         self.test_case = test_config.name
-        self.logger = createLogger(__name__, dirname + '/%s_executor.log' % test_case, formatter)
+        self.logger = createLogger(__name__, 'log/' + exec_config_name + '/%s_executor.log' % test_case, formatter)
         self.num_replicas = len(test_config.replicas)
         self.num_faulty = len(test_config.twins)
         self.f = num_faulty
@@ -97,7 +97,7 @@ class TestCaseExec(process):
                     leaders,
                     len(test_config.rounds),
                     test_config.name,
-                    dirname
+                    exec_config_name
                 )
             )
         self.t = test_config.timeout
@@ -333,11 +333,15 @@ class MainExec(process):
     def setup(fname):
         self.test_cases = []
         self.exec_config_name = os.path.basename(fname).split('.')[0]
-        self.dirname = 'log/' + exec_config_name
-        if not(os.path.isdir(dirname)):
-            os.mkdir(dirname)
-        self.logger = createLogger(__name__, dirname + '/main.log', 'MainExec')
-        logger.info('Writing logs in directory %s' % dirname)
+        logdir = 'log/' +  exec_config_name
+        if not(os.path.isdir(logdir)):
+            os.mkdir(logdir)
+        ledgerdir = 'ledger/' + exec_config_name
+        if not(os.path.isdir(ledgerdir)):
+            os.mkdir(ledgerdir)
+        self.logger = createLogger(__name__, logdir + '/main.log', 'MainExec')
+        logger.info('Writing logs in directory %s' % logdir)
+        logger.info('Writing ledgers in directory %s' % ledgerdir)
 
         parse_tests()
 
@@ -371,7 +375,7 @@ class MainExec(process):
             # DEBUGGING:
             #if i == 2:
             #    break
-            r = new(TestCaseExec, (dirname, self, test_config))
+            r = new(TestCaseExec, (exec_config_name, self, test_config))
             logger.info('Starting test case %s' % test_config.name)
             start(r)
             await(countof(m, received(m), m == ('done',)) == i + 1)
