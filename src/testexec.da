@@ -258,6 +258,8 @@ class TestCaseExec(process):
             super().send(done_msg, replicas)
         send(('done',), to=main_exec)
 
+    # TODO is it okay to block sync messages between partitions?
+    #   probably but that could stress the sync manager code
     def can_send(src, dst, r, override=False):
         if r == 'stable':
             return True
@@ -325,30 +327,43 @@ class TestCaseExec(process):
             if can_send(sender, receiver, rnd, timeout_override):
                 super().send((msg, src), receiver)
             else:
-                logger.info('dropping %s message from %s to %s' % (msg[0], src, process_to_id[receiver]))
+                logger.info('dropping %s message from %s to %s in round %d' % (msg[0], src, process_to_id[receiver], rnd))
         
 class MainExec(process):
     def setup(fname):
         self.test_cases = []
-        self.dirname = 'log/' + fname
+        self.exec_config_name = os.path.basename(fname).split('.')[0]
+        self.dirname = 'log/' + exec_config_name
         if not(os.path.isdir(dirname)):
             os.mkdir(dirname)
-        with open(fname, 'r') as file:
-            originals = json.loads(file.readline())
-            twins = json.loads(file.readline())
-            for idx,test_case in enumerate(file):             
-                rounds = deserialize(test_case)
-                transmission_delay_bound = 0.8
-                seed = 0
-                name = f'test{idx}'
-                timeout = 30
-                gst = len(rounds) - 7
+        self.logger = createLogger(__name__, dirname + '/main.log', 'MainExec')
+        logger.info('Writing logs in directory %s' % dirname)
 
-                new_test = TestConfig(originals, twins, rounds,transmission_delay_bound,seed,name,timeout,gst)          # produce 1 testconfig() namedtuple for each test case
-                test_cases.append(new_test)
-        formatter = 'MainExec'
-        self.logger = createLogger(__name__, dirname + '/main.log',formatter)
-        logger.info('Parsed %d test cases from %s' % (len(test_cases), fname))
+        parse_tests()
+
+        logger.info('Parsed %d test cases from %s' % (len(test_cases), exec_config_name))
+
+    def parse_tests():
+        if fname[-3:] == '.py' or fname[-3:] == '.da':
+            modname = os.path.dirname(fname).replace('/', '.') + '.' + exec_config_name
+            mod = importlib.import_module(modname)
+            test_cases = mod.test_cases
+        elif fname[-4:] == 'json':
+            with open(fname, 'r') as file:
+                originals = json.loads(file.readline())
+                twins = json.loads(file.readline())
+                for idx,test_case in enumerate(file):             
+                    rounds = deserialize(test_case)
+                    transmission_delay_bound = 0.8
+                    seed = 0
+                    name = f'test{idx}'
+                    timeout = 30
+                    gst = len(rounds) - 7
+
+                    new_test = TestConfig(originals, twins, rounds,transmission_delay_bound,seed,name,timeout,gst)          # produce 1 testconfig() namedtuple for each test case
+                    test_cases.append(new_test)
+        else:
+            logger.info('we only support .py and .json configuration files')
 
     def run():
         i = 0
@@ -361,7 +376,7 @@ class MainExec(process):
             start(r)
             await(countof(m, received(m), m == ('done',)) == i + 1)
             logger.info('Finished test case %s' % test_config.name)
-        logger.info('Finished running all test cases from %s' % fname)
+        logger.info('Finished running all test cases from %s' % exec_config_name)
 
 def main():
     config(channel = 'reliable')

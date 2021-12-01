@@ -132,6 +132,10 @@ class Replica(process):
             logger.info('%s received %s message from %s' % (to_str(), M[0], sender))
             syncmanager.process_sync_request(M[1], sender)
         elif msg_type == 'sync_response':
+            logger.debug('received sync_response')
+            logger.debug(M)
+            logger.debug('highqcpath:', M[1].high_qc_path)
+            # TODO high_qc_path can be empty??
             logger.info('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], sender, M[1].high_qc_path[-1].round))
             syncmanager.process_sync_response(M[1], sender)
         elif msg_type == 'done':

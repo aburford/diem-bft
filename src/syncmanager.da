@@ -56,6 +56,7 @@ def process_sync_request(sync_request, src):
     #logger.info('chain:', [b.id for b in chain])
     #logger.info('path:', [b.id for b in path])
     resp = SyncResponseMsg(chain, path)
+    logger.debug('sending sync response to %s' % src)
     multicast(('sync_response', resp), src)
 
 def process_sync_response(sync_response, src):
