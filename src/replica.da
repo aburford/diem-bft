@@ -32,6 +32,7 @@ class Replica(process):
         safety.public_keys = public_keys
         safety.private_key = private_key
         safety.u = to_str()
+        safety.bugs = bugs
         ledger.open_ledger('ledger/' + exec_config_name + '/' + testcase_name + "-" + to_str())
         ledger.validators = len(replica_ids)
 
