@@ -19,7 +19,8 @@ class ReplicaTestExec(process, Replica):
         num_faulty,
         leaders,
         nrounds,
-        testcase_name
+        testcase_name,
+        dirname
     ):
         super().setup(
             executor,
@@ -30,7 +31,8 @@ class ReplicaTestExec(process, Replica):
             ident,
             seed,
             num_faulty,
-            testcase_name
+            testcase_name,
+            dirname
         )
         personal_seed = random.random()
         random.seed(seed)

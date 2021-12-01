@@ -23,7 +23,8 @@ class Replica(process):
         ident,
         seed,
         num_faulty,
-        testcase_name
+        testcase_name,
+        dirname
     ):
         self.done = False
         self.u = to_str()
@@ -52,11 +53,13 @@ class Replica(process):
         syncmanager.handle_msg = handle_msg
         # logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
         #     format= '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w') 
-        formatter = '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s'
-        self.logger = createLogger(__name__,f"log/{testcase_name}_{to_str()}.log",formatter)
+        formatter = to_str()
+        self.logger = createLogger(__name__, dirname + '/%s_%s.log' % (testcase_name, to_str()), formatter)
         pacemaker.logger = self.logger
         ledger.logger = self.logger
         safety.logger = self.logger
+        blocktree.logger = self.logger
+        syncmanager.logger = self.logger
 
         logger.debug(f"[Initial settings for current replica]: \n\
         public keys are: {public_keys}\n\
@@ -129,6 +132,10 @@ class Replica(process):
             logger.info('%s received %s message from %s' % (to_str(), M[0], sender))
             syncmanager.process_sync_request(M[1], sender)
         elif msg_type == 'sync_response':
+            logger.debug('received sync_response')
+            logger.debug(M)
+            logger.debug('highqcpath:', M[1].high_qc_path)
+            # TODO high_qc_path can be empty??
             logger.info('%s received %s message from %s for high_qc round %d' % (to_str(), M[0], sender, M[1].high_qc_path[-1].round))
             syncmanager.process_sync_response(M[1], sender)
         elif msg_type == 'done':
@@ -136,10 +143,8 @@ class Replica(process):
         elif msg_type == 'request' and sender in clients:
             # process request from client
             txn = M[1]
-
             author = txn[1]
             signature = M[2]
-
             if not safety.verify_client(author, signature):
                 # invalid signature, reject the request
                 pass
@@ -244,7 +249,7 @@ class Replica(process):
                     pacemaker.current_round
                 )
                 msg = blocktree.ProposalMsg(b, last_tc, blocktree.high_commit_qc)
-                logger.info('%s sending proposal for round %d with block id %s' % (u, pacemaker.current_round, b.id))
+                logger.info('%s sending proposal for round %d with block id %s\n\tparent block id %s' % (u, pacemaker.current_round, b.id, b.qc and b.qc.vote_info.id))
                 broadcast(('proposal', msg))
             else:
                 logger.info(to_str() + ' has no reason to generate proposal')
