@@ -46,7 +46,6 @@ def twin(replica):
     else:
         return replica + '\''
 
-
 # Enumerates all possible intra-partition message drops
 def excepts(endpoints):
     endpoints = endpoints + ['_']
@@ -219,27 +218,30 @@ def main():
     global replicas
     global eligible_leaders
 
-    if len(sys.argv) != 3:
-        print('Usage: testgenerator.py CONFIG_FILE OUTPUT_FILE')
+    if len(sys.argv) != 2:
+        print('Usage: testgenerator.py CONFIG_FILE')
         sys.exit(1)
     fname = sys.argv[1]
     config_name = os.path.basename(fname).split('.')[0]
     if fname[-3:] == '.py' or fname[-3:] == '.da':
         modname = os.path.dirname(fname).replace('/', '.') + '.' + config_name
         mod = importlib.import_module(modname)
-        (tests, R, P, C, L, E, N, F, random_partitions, random_leaders, random_configurations, allow_non_faulty_leaders, allow_quorumless_partitions) = mod.test_case
+        (tests, R, P, C, L, E, N, F, random_partitions, random_leaders, random_configurations, allow_non_faulty_leaders, allow_quorumless_partitions, out_file) = mod.test_case
         all_partitions = None
         all_configurations = None
         originals = [chr(ord('a')+j) for j in range(N)]
         twins = [twin(replica) for replica in take(originals, F)]
         replicas = originals + twins
+
+        if not(os.path.isdir("generated_tests")):
+            os.mkdir("generated_tests")
         
         if allow_non_faulty_leaders:
             eligible_leaders = replicas
         else:
             eligible_leaders = [replica for replica in take(originals, F)]
         
-        with open(sys.argv[2], 'w') as out_file:
+        with open("generated_tests/" + out_file, 'w') as out_file:
             json.dump(originals, out_file)
             out_file.write('\n')
             json.dump(twins, out_file)
