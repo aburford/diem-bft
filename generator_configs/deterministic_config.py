@@ -1,7 +1,7 @@
 from src.testconfig import *
 
 #test_case = GenConfig(5, 5, 10, 3, 100, 2, 1, 7, 2, False, False, False, False, True, "deterministic_config.py")
-test_case = GenConfig(10000, 5, 10, 3, 10000, 7, 1, 7, 2, False, False, False, False, False, "deterministic_config.py")
+test_case = GenConfig(10000, 5, 10, 3, 10000, 7, 1, 7, 2, False, False, False, False, False, "deterministic_config.json")
 # tests = None
 # R = None # rounds
 # P = None # partitions
