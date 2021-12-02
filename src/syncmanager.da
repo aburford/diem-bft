@@ -156,7 +156,7 @@ def sync_high_commit_qc(sync_response):
     # root of commit_chain should have qc referencing our own highest committed block
     for block in sync_response.commit_chain:
         if block.qc and not blocktree.pending_block_tree.contains(block.qc.vote_info.id):
-            logger.info('------not sure why this happens--------')
+            #logger.info('------not sure why this happens--------')
             return False
         logger.debug('syncmanager commit chain processing block', block.id)
         process_certificate_qc(block.qc)
@@ -166,10 +166,10 @@ def sync_high_commit_qc(sync_response):
 def sync_high_qc(sync_response):
     if not len(sync_response.high_qc_path):
         return False
-    if sync_response.high_qc_path[-1].round < syncing_high_qc.vote_info.round:
+    if syncing_high_qc and sync_response.high_qc_path[-1].round < syncing_high_qc.vote_info.round:
         return False
     for block in sync_response.high_qc_path:
-        if not blocktree.pending_block_tree.contains(block.qc.vote_info.id):
+        if block.qc and not blocktree.pending_block_tree.contains(block.qc.vote_info.id):
             # we could receive a path whose prefix we have already committed
             # so continue until we have the pending parent block
             continue

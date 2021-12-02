@@ -44,7 +44,7 @@ class ReplicaTestExec(process, Replica):
             txn = [random.choice(alphabet) for _ in range(6)]
             uuid = '%xu' % random.getrandbits(16*8)
             txns.append((uuid, ''.join(txn)))
-        #random.seed(personal_seed)
+        random.seed(personal_seed)
         random.shuffle(txns)
         random.seed(seed)
         for uuid, txn in txns:
