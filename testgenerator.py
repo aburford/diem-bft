@@ -1,19 +1,21 @@
+import os
+import importlib
 from collections import namedtuple
 from enum import Enum
 import random
 import json
 import sys
-from testconfig import *
+from src.testconfig import *
 
-tests = 1000
-R = 1 # rounds
-P = 2 # partitions
-C = 1000 # round configurations
-L = 4 # leader choices
-E = 2 # inter partition drops
+tests = None
+R = None # rounds
+P = None # partitions
+C = None # round configurations
+L = None # leader choices
+E = None # inter partition drops
 
-N = 7 # nodes
-F = 2 # faulty nodes
+N = None # nodes
+F = None # faulty nodes
 
 random_partitions = False # random partitions
 random_leaders = False # random leaders
@@ -193,35 +195,65 @@ def deserialize(test_case):
     return rounds
 
 def main():
+    global tests
+    global R
+    global P
+    global C
+    global L
+    global E
+    global N
+    global F
+    global random_partitions
+    global random_leaders
+    global random_configurations
+    global allow_non_faulty_leaders
+    global allow_quorumless_partitions
+    global all_partitions
+    global all_configurations
     global originals
     global twins
     global replicas
     global eligible_leaders
-    originals = [chr(ord('a')+j) for j in range(N)]
-    twins = [twin(replica) for replica in take(originals, F)]
-    replicas = originals + twins
-    
-    if allow_non_faulty_leaders:
-        eligible_leaders = replicas
-    else:
-        eligible_leaders = [replica for replica in take(originals, F)]
-    
-    if len(sys.argv) != 2:
-        print('Usage: testgenerator.py OUTPUT_FILE')
+    global originals
+    global twins
+    global replicas
+    global eligible_leaders
+
+    if len(sys.argv) != 3:
+        print('Usage: testgenerator.py CONFIG_FILE OUTPUT_FILE')
         sys.exit(1)
-    with open(sys.argv[1], 'w') as out_file:
-        json.dump(originals, out_file)
-        out_file.write('\n')
-        json.dump(twins, out_file)
-        out_file.write('\n')
-        # no bugs
-        json.dump(set(), out_file)
-        out_file.write('\n')
-        for test in test_generator():
-            test_str = json.dumps(test)
-            # test_str = deserialize(test_str)
-            # test_str = f'{str(test_str)}'
-            out_file.write(test_str+"\n")
+    fname = sys.argv[1]
+    config_name = os.path.basename(fname).split('.')[0]
+    if fname[-3:] == '.py' or fname[-3:] == '.da':
+        modname = os.path.dirname(fname).replace('/', '.') + '.' + config_name
+        mod = importlib.import_module(modname)
+        (tests, R, P, C, L, E, N, F, random_partitions, random_leaders, random_configurations, allow_non_faulty_leaders, allow_quorumless_partitions) = mod.test_case
+        all_partitions = None
+        all_configurations = None
+        originals = [chr(ord('a')+j) for j in range(N)]
+        twins = [twin(replica) for replica in take(originals, F)]
+        replicas = originals + twins
+        
+        if allow_non_faulty_leaders:
+            eligible_leaders = replicas
+        else:
+            eligible_leaders = [replica for replica in take(originals, F)]
+        
+        with open(sys.argv[2], 'w') as out_file:
+            json.dump(originals, out_file)
+            out_file.write('\n')
+            json.dump(twins, out_file)
+            out_file.write('\n')
+            # no bugs
+            json.dump([], out_file)
+            out_file.write('\n')
+            for test in test_generator():
+                test_str = json.dumps(test)
+                # test_str = deserialize(test_str)
+                # test_str = f'{str(test_str)}'
+                out_file.write(test_str+"\n")
+    else:
+        print('we only support .py and .da configuration files')
 
 if __name__  == '__main__':
     main()
