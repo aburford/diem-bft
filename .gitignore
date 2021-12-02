@@ -21,5 +21,6 @@ tags
 __pycache__/
 ledger/
 log/
+generated_tests/
 
 !configs/__init__.py
