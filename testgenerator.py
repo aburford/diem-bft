@@ -1,7 +1,5 @@
 import os
 import importlib
-from collections import namedtuple
-from enum import Enum
 import random
 import json
 import sys
@@ -44,8 +42,7 @@ def take(generator, n):
 def twin(replica):
     if '\'' in replica:
         return replica[:-1]
-    else:
-        return replica + '\''
+    return replica + '\''
 
 # Enumerates all possible intra-partition message drops
 def excepts(endpoints):
@@ -64,7 +61,7 @@ def excepts(endpoints):
 # Generates all samples of k things from the generator
 def replacement_samples(gen, gen_args, k):
     if k == 0:
-       yield []
+        yield []
     else:
         for sample in replacement_samples(gen, gen_args, k - 1):
             for thing in gen(*gen_args):
@@ -81,8 +78,8 @@ def except_samples(bucket):
 # Pick a random partition
 def random_partition_gen():
     global all_partitions
-    if all_partitions == None:
-        all_partitions = [partition for partition in partition_gen_quorum()]
+    if all_partitions is None:
+        all_partitions = list(partition_gen_quorum())
 
     while True:
         yield random.choice(all_partitions)
@@ -93,17 +90,16 @@ def partition_gen(n, k):
         yield []
     if k == 0 or n < k:
         return
-    else:
         # Recursively generate partitions for the n - 1 other replicas
-        for partition in partition_gen(n - 1, k - 1):
-            partition.append([replicas[n - 1]])
-            yield partition
-        for partition in partition_gen(n - 1, k):
-            for i, bucket in enumerate(partition):
-                new_partition = partition.copy()
-                new_partition[i] = bucket.copy()
-                new_partition[i].append(replicas[n - 1])
-                yield new_partition
+    for partition in partition_gen(n - 1, k - 1):
+        partition.append([replicas[n - 1]])
+        yield partition
+    for partition in partition_gen(n - 1, k):
+        for i, bucket in enumerate(partition):
+            new_partition = partition.copy()
+            new_partition[i] = bucket.copy()
+            new_partition[i].append(replicas[n - 1])
+            yield new_partition
 
 def partition_gen_quorum():
     for partition in partition_gen(len(replicas), K):
@@ -115,8 +111,7 @@ def partition_gen_quorum():
 def partitions():
     if random_partitions:
         return random_partition_gen()
-    else:
-        return partition_gen_quorum()
+    return partition_gen_quorum()
 
 # Randomly or deterministically generates leaders for a bucket. "Bucket" is explained in the
 # next comment
@@ -135,7 +130,7 @@ def partition_except_sets(partition):
     if len(partition) == 0:
         yield []
     else:
-        bucket = [replica for replica in partition[0]]
+        bucket = list(partition[0])
         for partition_except_set in partition_except_sets(partition[1:]):
             for except_sample in take(except_samples(bucket), E):
                 yield except_sample + partition_except_set
@@ -157,9 +152,8 @@ def round_gen():
 # the first L leaders
 def random_round_gen():
     global all_configurations
-
-    if all_configurations == None:
-        all_configurations = [configuration for configuration in round_gen()]
+    if all_configurations is None:
+        all_configurations = list(round_gen())
     while True:
         yield random.choice(all_configurations)
 
@@ -178,22 +172,19 @@ def test_generator():
 
 def deserialize(test_case):
     rounds = []
-    for i, rnd in enumerate(json.loads(test_case)):
-        
+    for rnd in json.loads(test_case):
         leader = rnd[0]
         partition = rnd[1]
-        excepts = rnd[2]
-
-        for j, ex in enumerate(excepts):
+        exp = rnd[2]
+        for j, ex in enumerate(exp):
             src = ex[0]
             dst = ex[1]
             msg_type = MsgType(ex[2])
-            excepts[j] = Except(src, dst, msg_type)
-            
-        rounds.append(Round(leader, partition, excepts))
-        
+            exp[j] = Except(src, dst, msg_type)
+        rounds.append(Round(leader, partition, exp))
     return rounds
 
+#pylint: disable=invalid-name,global-statement
 def main():
     global tests
     global R
@@ -228,21 +219,19 @@ def main():
     if fname[-3:] == '.py' or fname[-3:] == '.da':
         modname = os.path.dirname(fname).replace('/', '.') + '.' + config_name
         mod = importlib.import_module(modname)
-        (tests, R, P, K, C, L, E, N, F, random_partitions, random_leaders, random_configurations, allow_non_faulty_leaders, allow_quorumless_partitions, out_file) = mod.test_case
+        (tests, R, P, K, C, L, E, N, F, random_partitions, random_leaders, random_configurations, 
+            allow_non_faulty_leaders, allow_quorumless_partitions, out_file) = mod.test_case
         all_partitions = None
         all_configurations = None
         originals = [chr(ord('a')+j) for j in range(N)]
         twins = [twin(replica) for replica in take(originals, F)]
         replicas = originals + twins
-
-        if not(os.path.isdir("generated_tests")):
+        if not os.path.isdir("generated_tests"):
             os.mkdir("generated_tests")
-        
         if allow_non_faulty_leaders:
             eligible_leaders = replicas
         else:
-            eligible_leaders = [replica for replica in take(originals, F)]
-        
+            eligible_leaders = list(take(originals, F))
         with open("generated_tests/" + out_file, 'w') as out_file:
             json.dump(originals, out_file)
             out_file.write('\n')
