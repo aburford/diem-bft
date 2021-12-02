@@ -42,6 +42,7 @@ class Replica(process):
         pacemaker.u = to_str()
         pacemaker.f = num_faulty
         pacemaker.broadcast = broadcast
+        pacemaker.bugs = bugs
         blocktree.u = to_str()
         blocktree.f = num_faulty
         blocktree.bugs = bugs

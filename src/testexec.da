@@ -120,7 +120,8 @@ class TestCaseExec(process):
         return setof(msg[1][1].sender, received(msg), msg[1][0] == 'vote' and msg[1][1].vote_info.id == block and msg[1][1].vote_info.round == rnd)
 
     def cert_blocks(rnd):
-        return setof(block, block in blocks(), lenof(v, v in voters(block, rnd)) >= 2*f + 1)
+        qsize = 2*f if 'small_quorum' in test_config.bugs else 2*f + 1
+        return setof(block, block in blocks(), lenof(v, v in voters(block, rnd)) >= qsize)
 
     def weak_cert_blocks(rnd):
         return setof(block, block in blocks(), lenof(v, v in voters(block, rnd), v not in twins) >= f + 1)
@@ -136,7 +137,12 @@ class TestCaseExec(process):
         return listof(link[2], link in blocklinks(), is_global_commit(link[0], link[1]))
 
     def safe_round(rnd):
-        return each(cert_block in cert_blocks(rnd), has=not some(block in weak_cert_blocks(rnd), has=block != cert_block))
+        violations = setof((cert_block, weak_cert_block), cert_block in cert_blocks(rnd), weak_cert_block in weak_cert_blocks(rnd), cert_block != weak_cert_block)
+        if len(violations):
+            for cert_block, weak_cert_block in violations:
+                logger.info('Block %s was certified in round %d but block %s also received f + 1 non-byzantine votes in the same round' % (cert_block, rnd, weak_cert_block))
+        return len(violations) == 0
+        #return each(cert_block in cert_blocks(rnd), has=not some(block in weak_cert_blocks(rnd), has=block != cert_block))
 
     # check that b1 -->* b2
     def extends(b1, b2, graph):
@@ -249,6 +255,7 @@ class TestCaseExec(process):
                     logger.info('Quorumless progress property upheld: no replicas progressed passed quorumless round')
                 super().send(done_msg, replicas)
                 check_safety()
+                logger.info('Not checking liveness due to quorumless round')
             else:
                 super().send(done_msg, replicas)
                 logger.info('All rounds completed')
@@ -287,7 +294,7 @@ class TestCaseExec(process):
         # otherwise replicas are stuck until they are sent a TC
         # from a future round and advance rounds
         elif msg_type[:5] == 'sync_':
-            return 'stable'
+            return msg[1].rnd
         # TODO don't think we should be blocking these?
         #elif msg_type == 'sync_request':
         #elif msg_type == 'sync_response':
