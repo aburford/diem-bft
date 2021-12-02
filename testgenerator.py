@@ -145,7 +145,7 @@ def partition_except_sets(partition):
 def round_gen():
     i = 0
     for leader in take(leaders(), L):
-        for partition in take(partitions(), P):
+        for partition in partitions():
             for partition_except_set in partition_except_sets(partition):
                 i += 1
                 if i >= C:

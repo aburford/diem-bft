@@ -357,7 +357,7 @@ class MainExec(process):
             with open(fname, 'r') as file:
                 originals = json.loads(file.readline())
                 twins = json.loads(file.readline())
-                bugs = json.loads(file.readlines())
+                bugs = json.loads(file.readline())
                 for idx,test_case in enumerate(file):             
                     rounds = deserialize(test_case)
                     transmission_delay_bound = 0.8
