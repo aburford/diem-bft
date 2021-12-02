@@ -12,7 +12,6 @@ from config import *
 from logger import createLogger
 import os
 import importlib
-from config import *
 from datetime import datetime
 from testgenerator import deserialize
 import json
@@ -33,7 +32,7 @@ class TestCaseExec(process):
         self.transmission_delay_bound = test_config.transmission_delay_bound
         self.nrounds = len(test_config.rounds)
         self.leaders = {i: r.leader for i, r in enumerate(test_config.rounds)}
-        self.timeouts = dict()
+        self.timeouts = {}
         self.gst = test_config.gst
         logger.info('Test case %s has %d replicas (%d faulty) and %d rounds' % (self.test_case, num_replicas, f, nrounds))
         # repeat leader of last round because vote messages
@@ -45,7 +44,7 @@ class TestCaseExec(process):
         leaders[nrounds] = leaders[nrounds - 1]
         self.replicas = list(new(ReplicaTestExec, num=(num_replicas + num_faulty)))
         # used to verify property 4
-        self.first_to_enter = dict()
+        self.first_to_enter = {}
         random.seed(seed)
         private_keys = {
             r: SigningKey(random.getrandbits(256).to_bytes(32, 'big'))
@@ -103,9 +102,7 @@ class TestCaseExec(process):
                 )
             )
         self.t = test_config.timeout
-    
     # msg = (src/dst, (msg_type, content))
-
     # return block ids
     def blocks():
         return setof(msg[1][1].block.id, received(msg), msg[1][0] == 'proposal' and get_round(msg[1]) < nrounds)
@@ -131,7 +128,6 @@ class TestCaseExec(process):
 
     def is_global_commit(block, rnd):
         return lenof(v, v in global_commit_voters(block, rnd + 1), v not in twins) >= f + 1
-    
     # (block, parent) where parent is the one globally direct committed
     def get_global_commits():
         return listof(link[2], link in blocklinks(), is_global_commit(link[0], link[1]))
@@ -189,56 +185,54 @@ class TestCaseExec(process):
             logger.info('Property 2 violated')
         else:
             logger.info('Property 2 upheld')
-
     def check_liveness():
-            # property 3
-            # technically the wording of property 3 means this hold true for all rounds after gst, not just the one immediately after
-            honest = {procs[0] for ident, procs in id_to_process.items() if len(procs) == 1}
-            if not each(r in honest, has=some(received(('executor', ('committed', (_, rnd, _))), from_=_r), has= rnd > gst)):
-                logger.info('Property 3 could be violated')
-            else:
-                logger.info('Property 3 upheld')
-            # property 4
-            violated = False
-            for rnd in range(gst, nrounds - 2):
-                honest_leaders = True
-                for i in range(3):
-                    if leaders[rnd + i] in twins:
-                        honest_leaders = False
-                        break
-                if honest_leaders:
-                    time = first_to_enter[rnd]
-                    blocks = setof(msg[1][1].block.id, received(msg, from_=r), r in honest and msg[1][0] == 'proposal' and msg[1][1].block.round == rnd)
-                    if len(blocks) > 1:
-                        logger.info('honest validator sent equivocating proposals (should never happen)')
-                        violated = True
-                        break
-                    elif len(blocks) == 0:
-                        logger.info('honest validator didnt send proposal in round after GST (should never happen)')
-                        violated = True
-                        break
-                    block_id = blocks.pop()
-                    for ident in test_config.replicas:
-                        if ident in twins:
-                            continue
-                        proc = id_to_process[ident][0]
-                        # should always have length of 1 anyways
-                        log_times = sorted(listof(time, received(('executor', ('committed', (_block_id, _rnd, time))), from_=_proc)))
-                        if not len(log_times):
-                            logger.info('Block %s proposed during GST never committed by %s' % (block_id, ident))
-                            violated = True
-                            break
-                        log_time = log_times[0]
-                        if (log_time - time).total_seconds() > 7 * transmission_delay_bound:
-                            violated = True
-                            break
-                if violated:
+        # property 3
+        # technically the wording of property 3 means this hold true for all rounds after gst, not just the one immediately after
+        honest = {procs[0] for ident, procs in id_to_process.items() if len(procs) == 1}
+        if not each(r in honest, has=some(received(('executor', ('committed', (_, rnd, _))), from_=_r), has= rnd > gst)):
+            logger.info('Property 3 could be violated')
+        else:
+            logger.info('Property 3 upheld')
+        # property 4
+        violated = False
+        for rnd in range(gst, nrounds - 2):
+            honest_leaders = True
+            for i in range(3):
+                if leaders[rnd + i] in twins:
+                    honest_leaders = False
                     break
+            if honest_leaders:
+                time = first_to_enter[rnd]
+                blocks = setof(msg[1][1].block.id, received(msg, from_=r), r in honest and msg[1][0] == 'proposal' and msg[1][1].block.round == rnd)
+                if len(blocks) > 1:
+                    logger.info('honest validator sent equivocating proposals (should never happen)')
+                    violated = True
+                    break
+                elif len(blocks) == 0:
+                    logger.info('honest validator didnt send proposal in round after GST (should never happen)')
+                    violated = True
+                    break
+                block_id = blocks.pop()
+                for ident in test_config.replicas:
+                    if ident in twins:
+                        continue
+                    proc = id_to_process[ident][0]
+                    # should always have length of 1 anyways
+                    log_times = sorted(listof(time, received(('executor', ('committed', (_block_id, _rnd, time))), from_=_proc)))
+                    if not len(log_times):
+                        logger.info('Block %s proposed during GST never committed by %s' % (block_id, ident))
+                        violated = True
+                        break
+                    log_time = log_times[0]
+                    if (log_time - time).total_seconds() > 7 * transmission_delay_bound:
+                        violated = True
+                        break
             if violated:
-                logger.info('Property 4 violated')
-            else:
-                logger.info('Property 4 upheld')
-
+                break
+        if violated:
+            logger.info('Property 4 violated')
+        else:
+            logger.info('Property 4 upheld')
 
     def run():
         logger.debug(f'Starting run with {num_replicas} replicas,{num_faulty} faulty replicas')
@@ -342,10 +336,10 @@ class MainExec(process):
         self.test_cases = []
         self.exec_config_name = os.path.basename(fname).split('.')[0]
         logdir = 'log/' +  exec_config_name
-        if not(os.path.isdir(logdir)):
+        if not os.path.isdir(logdir):
             os.mkdir(logdir)
         ledgerdir = 'ledger/' + exec_config_name
-        if not(os.path.isdir(ledgerdir)):
+        if not os.path.isdir(ledgerdir):
             os.mkdir(ledgerdir)
         self.logger = createLogger(__name__, logdir + '/main.log', 'MainExec')
         logger.info('Writing logs in directory %s' % logdir)
@@ -372,7 +366,6 @@ class MainExec(process):
                     name = f'test{idx}'
                     timeout = 30
                     gst = len(rounds) - 7
-
                     new_test = TestConfig(originals, twins, rounds,transmission_delay_bound,seed,name,timeout,gst,bugs)          # produce 1 testconfig() namedtuple for each test case
                     test_cases.append(new_test)
         else:
