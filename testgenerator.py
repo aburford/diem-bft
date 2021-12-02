@@ -10,6 +10,7 @@ from src.testconfig import *
 tests = None
 R = None # rounds
 P = None # partitions
+K = None # buckets
 C = None # round configurations
 L = None # leader choices
 E = None # inter partition drops
@@ -105,7 +106,7 @@ def partition_gen(n, k):
                 yield new_partition
 
 def partition_gen_quorum():
-    for partition in partition_gen(len(replicas), P):
+    for partition in partition_gen(len(replicas), K):
         if max([len(bucket) for bucket in partition]) > 2 * F \
                 or allow_quorumless_partitions:
             yield partition
@@ -144,7 +145,7 @@ def partition_except_sets(partition):
 def round_gen():
     i = 0
     for leader in take(leaders(), L):
-        for partition in partitions():
+        for partition in take(partitions(), P):
             for partition_except_set in partition_except_sets(partition):
                 i += 1
                 if i >= C:
@@ -197,6 +198,7 @@ def main():
     global tests
     global R
     global P
+    global K
     global C
     global L
     global E
@@ -226,7 +228,7 @@ def main():
     if fname[-3:] == '.py' or fname[-3:] == '.da':
         modname = os.path.dirname(fname).replace('/', '.') + '.' + config_name
         mod = importlib.import_module(modname)
-        (tests, R, P, C, L, E, N, F, random_partitions, random_leaders, random_configurations, allow_non_faulty_leaders, allow_quorumless_partitions, out_file) = mod.test_case
+        (tests, R, P, K, C, L, E, N, F, random_partitions, random_leaders, random_configurations, allow_non_faulty_leaders, allow_quorumless_partitions, out_file) = mod.test_case
         all_partitions = None
         all_configurations = None
         originals = [chr(ord('a')+j) for j in range(N)]
