@@ -323,6 +323,9 @@ class TestCaseExec(process):
             # no because padded partitions after GST mean all replicas should enter the 
             # last round without needing syncup (i think)
             return
+        if rnd == nrounds - 1 and msg[0] == 'vote':
+            # prevent leader in round past GST from committing block
+            return 
         timeout_override = False
         if msg[0] == 'timeout':
             k = (src, dst, rnd)

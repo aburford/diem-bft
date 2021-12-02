@@ -3,6 +3,7 @@ import os
 #import logging
 from collections import OrderedDict
 
+bugs = None
 logger = None
 HASHER = nacl.hash.sha256
 id_to_pending = {}
@@ -18,7 +19,6 @@ ledger_file = None
 def open_ledger(filename):
     global ledger_file
 
-    # TODO: get LEDGER_ID filename from configuration
     ledger_file = open(filename, "w+")
 
 def close_ledger():
@@ -59,7 +59,7 @@ class LedgerState:
 def speculate(prev_block_id, block_id, txns):
     if block_id in pending_block_to_state:
         logger.debug('ignoring block that is already speculated', block_id)
-        return
+    #    return
     state = LedgerState(
         prev_block_id,
         block_id,
@@ -85,6 +85,7 @@ def commit_prefix(state):
         if state.parent_state_id in pending_block_to_state:
             commit_prefix(pending_block_to_state[state.parent_state_id])
         ledger_file.write(state.commands)
+        ledger_file.write(state.id.decode() + '\n')
         ledger_file.flush()
         os.fsync(ledger_file.fileno())
         # TODO: add the committed block to committed_blocks

@@ -50,11 +50,13 @@ class Replica(process):
         mempool.u = to_str()
         mempool.multicast = multicast
         ledger.u = to_str()
+        ledger.bugs = bugs
         random.seed(seed)
         syncmanager.u = to_str()
         syncmanager.multicast = multicast
         syncmanager.process_certificate_qc = process_certificate_qc
         syncmanager.handle_msg = handle_msg
+        syncmanager.bugs = bugs
         # logging.basicConfig(filename = f"log/{testcase_name}_{to_str()}.log",level=logging.INFO,
         #     format= '[%(asctime)s] - ' + '[' + to_str() + '] - ' + '%(message)s',filemode='w') 
         formatter = to_str()

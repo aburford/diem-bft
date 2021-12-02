@@ -3,6 +3,7 @@ import ledger
 from blocktree import SyncRequestMsg, SyncResponseMsg
 import pacemaker
 
+bugs = None
 syncing = False
 syncing_high_commit_qc = None
 syncing_high_qc = None
@@ -55,7 +56,10 @@ def process_sync_request(sync_request, src):
     #logger.info(blocktree.pending_block_tree.id_to_block[sync_request.high_qc.vote_info.id].block.qc)
     if blocktree.pending_block_tree.contains(sync_request.high_qc.vote_info.id):
         process_certificate_qc(sync_request.high_qc)
-    block_id = sync_request.high_commit_qc.vote_info.parent_id if sync_request.high_commit_qc else None
+    if 'long_commit_chain' in bugs:
+        block_id = sync_request.high_commit_qc.vote_info.parent_id if sync_request.high_commit_qc else None
+    else:
+        block_id = sync_request.high_commit_qc.vote_info.id if sync_request.high_commit_qc else None
     chain = ledger.get_commit_chain(block_id)
     path = blocktree.path_from_commit_root()
     #logger.info('pending block tree:', blocktree.pending_block_tree.id_to_block)
@@ -66,9 +70,7 @@ def process_sync_request(sync_request, src):
     multicast(('sync_response', resp), src)
 
 def process_sync_response(sync_response, src):
-    logger.info('%s process_sync_response called' % u)
     if not syncing:
-        logger.info('%s ignoring sync response b/c not syncing' % u)
         return False
     # first catch up high_commit_qc
     if not sync_high_commit_qc(sync_response):
@@ -124,9 +126,11 @@ def send_sync_request():
         return
     # deterministically choose a dst
     # but if we timeout then we choose a different one next round
+    # jk just send to everyone because we block interpartition sync ups
     dst = sorted(list(not_tried))[pacemaker.current_round % len(not_tried)]
-    logger.info('%s sending sync request to %s' % (u, dst))
-    multicast(('sync_request', req), dst)
+    logger.info('%s sending sync request to %s' % (u, ','.join(not_tried)))
+    #multicast(('sync_request', req), dst)
+    multicast(('sync_request', req), not_tried)
 
 def timeout():
     global syncing
