@@ -40,7 +40,7 @@ class LedgerState:
             # We are the genesis block. Set self.parent_state_id so
             # that HASHER doesn't yell at us
             if prev_block_id:
-                logger.info('-----error prev_block_id %s is not in pending_block_to_state  %s' % (prev_block_id, pending_block_to_state))
+                logger.debug('missing parent block in pending_block_to_state')
             self.parent_state_id = b'' 
 
         self.id = HASHER(
