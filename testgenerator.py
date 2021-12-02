@@ -46,7 +46,6 @@ def twin(replica):
 
 # Enumerates all possible intra-partition message drops
 def excepts(endpoints):
-    endpoints = endpoints + ['_']
     msg_types = [
         MsgType.Proposal,
         MsgType.TimeOut,
@@ -103,7 +102,7 @@ def partition_gen(n, k):
 
 def partition_gen_quorum():
     for partition in partition_gen(len(replicas), K):
-        if max([len(bucket) for bucket in partition]) > 2 * F \
+        if max([len(set([replica[0] for replica in bucket])) for bucket in partition]) >= 2 * F + 1 \
                 or allow_quorumless_partitions:
             yield partition
 
@@ -229,7 +228,7 @@ def main():
         if not os.path.isdir("generated_tests"):
             os.mkdir("generated_tests")
         if allow_non_faulty_leaders:
-            eligible_leaders = replicas
+            eligible_leaders = originals
         else:
             eligible_leaders = list(take(originals, F))
         with open("generated_tests/" + out_file, 'w') as out_file:
