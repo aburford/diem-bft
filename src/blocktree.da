@@ -225,22 +225,26 @@ class ProposalMsg:
     "#signature: {self.signature} "
 
 class SyncRequestMsg:
-    def __init__(self, high_commit_qc, high_qc):
+    def __init__(self, high_commit_qc, high_qc, rnd):
         self.high_commit_qc = high_commit_qc
         self.high_qc = high_qc
+        self.rnd = rnd
 
     def __repr__(self):
         return f"high_commit_qc: {{{self.high_commit_qc}}}\n\
-                high_qc: {{{self.high_qc}}}\n"
+                high_qc: {{{self.high_qc}}}\n\
+                round: {self.rnd}"
 
 class SyncResponseMsg:
-    def __init__(self, commit_chain, high_qc_path):
+    def __init__(self, commit_chain, high_qc_path, rnd):
         self.commit_chain = commit_chain
         self.high_qc_path = high_qc_path
+        self.rnd = rnd
 
     def __repr__(self):
         return f"commit_chain: {{{self.commit_chain}}}\n\
-                high_qc_path: {{{self.high_qc_path}}}\n"
+                high_qc_path: {{{self.high_qc_path}}}\n\
+                rnd: {self.rnd}"
 
 # QC with the highest round
 def max_qc(qc1, qc2):

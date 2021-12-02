@@ -14,12 +14,20 @@ multicast = None
 process_certificate_qc = None
 handle_msg = None
 logger = None
+rnd = None
+
+def get_round(msg):
+    if msg[0] == 'proposal':
+        return msg[1].block.round
+    elif msg[0] == 'timeout':
+        return msg[1].tmo_info.round
 
 # return True if we need to sync up before processing this proposal
 def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):
     global syncing
     global syncing_high_commit_qc
     global syncing_high_qc
+    global rnd
     if syncing:
         msg_queue.append((msg, src))
         logger.info('%s is already syncing' % u)
@@ -29,6 +37,7 @@ def need_sync(remote_high_commit_qc, remote_high_qc, msg, src):
     if not synced():
         logger.info('%s starting new sync up to ' % u, syncing_high_qc.vote_info.id)
         syncing = True
+        rnd = get_round(msg)
         msg_queue.append((msg, src))
         send_sync_request()
         return True
@@ -52,7 +61,7 @@ def process_sync_request(sync_request, src):
     #logger.info('pending block tree:', blocktree.pending_block_tree.id_to_block)
     #logger.info('chain:', [b.id for b in chain])
     #logger.info('path:', [b.id for b in path])
-    resp = SyncResponseMsg(chain, path)
+    resp = SyncResponseMsg(chain, path, sync_request.rnd)
     logger.debug('sending sync response to %s' % src)
     multicast(('sync_response', resp), src)
 
@@ -101,7 +110,7 @@ def synced():
 
 def send_sync_request():
     # first bring high_commit_qc up to date
-    req = SyncRequestMsg(blocktree.high_commit_qc, syncing_high_qc)
+    req = SyncRequestMsg(blocktree.high_commit_qc, syncing_high_qc, rnd)
     qc = syncing_high_qc if high_commit_qc_synced() else syncing_high_commit_qc
     signators = {replica for replica, signature in qc.signatures}
     # randomly pop a replica from the quorum
