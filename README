@@ -1,2 +1,0 @@
-python src/testgenerator.py output.json
-python -m da --message-buffer-size 80000 src/testexec.da output.json
